@@ -1,0 +1,95 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Navigation {
+  id            Int       @id @default(autoincrement())
+  title         String
+  slug          String    @unique
+  lastScrapedAt DateTime?
+  categories    Category[]
+  createdAt     DateTime  @default(now())
+}
+
+model Category {
+  id            Int        @id @default(autoincrement())
+  title         String
+  slug          String
+  productCount  Int?
+  lastScrapedAt DateTime?
+  navigationId  Int
+  parentId      Int?
+  navigation    Navigation @relation(fields: [navigationId], references: [id])
+  parent        Category?  @relation("CategoryHierarchy", fields: [parentId], references: [id])
+  children      Category[] @relation("CategoryHierarchy")
+  products      Product[]
+  createdAt     DateTime   @default(now())
+
+  @@unique([navigationId, slug])
+}
+
+model Product {
+  id            Int            @id @default(autoincrement())
+  sourceId      String         @unique
+  title         String
+  author        String?
+  price         Float?
+  currency      String?
+  imageUrl      String?
+  sourceUrl     String         @unique
+  lastScrapedAt DateTime?
+  categoryId    Int
+  category      Category       @relation(fields: [categoryId], references: [id])
+  detail        ProductDetail?
+  reviews       Review[]
+  createdAt     DateTime       @default(now())
+}
+
+model ProductDetail {
+  productId     Int      @id
+  description   String?
+  specs         Json?
+  ratingsAvg    Float?
+  reviewsCount  Int?
+  product       Product  @relation(fields: [productId], references: [id])
+  updatedAt     DateTime @updatedAt
+}
+
+model Review {
+  id        Int      @id @default(autoincrement())
+  author    String?
+  rating    Float?
+  text      String?
+  productId Int
+  product   Product  @relation(fields: [productId], references: [id])
+  createdAt DateTime @default(now())
+}
+
+model ScrapeJob {
+  id         Int      @id @default(autoincrement())
+  targetUrl  String
+  targetType String
+  status     String
+  errorLog   String?
+  startedAt  DateTime?
+  finishedAt DateTime?
+  createdAt  DateTime @default(now())
+}
+
+model ViewHistory {
+  id        Int      @id @default(autoincrement())
+  sessionId String
+  pathJson  Json
+  createdAt DateTime @default(now())
+}
