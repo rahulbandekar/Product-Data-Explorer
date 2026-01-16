@@ -7,9 +7,9 @@ import { AppModule } from './app.module';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   
-  // Enable CORS for frontend
+  // Enable CORS - allow all origins for now (restrict later when you have frontend)
   app.enableCors({
-    origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+    origin: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     credentials: true,
   });
@@ -38,12 +38,11 @@ async function bootstrap() {
   // Enable shutdown hooks
   app.enableShutdownHooks();
   
-  const port = process.env.PORT || 4000;
+  const port = process.env.PORT || 10000;
   await app.listen(port);
   
-  console.log(`🚀 Server running on http://localhost:${port}`);
-  console.log(`📚 Swagger docs at http://localhost:${port}/api-docs`);
-  console.log(`🌐 CORS enabled for: ${process.env.FRONTEND_URL || 'http://localhost:3000'}`);
+  console.log(`🚀 Server running on port ${port}`);
+  console.log(`📚 Swagger docs at /api-docs`);
 }
 
 bootstrap().catch((error) => {

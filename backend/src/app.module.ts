@@ -7,7 +7,25 @@ import { APP_GUARD } from '@nestjs/core';
 import { PrismaModule } from './prisma/prisma.module';
 import { ScrapeModule } from './scrape/scrape.module';
 import { ApiModule } from './api/api.module';
-import { LoggingMiddleware } from './middleware/logging.middleware'; // Make sure to import this
+import { LoggingMiddleware } from './middleware/logging.middleware'; 
+import { HealthController } from './health/health.controller';
+
+// Helper function to parse Redis connection
+function getRedisConnection() {
+  if (process.env.REDIS_URL) {
+    // Parse Redis URL (format: redis://hostname:port)
+    const url = new URL(process.env.REDIS_URL);
+    return {
+      host: url.hostname,
+      port: parseInt(url.port || '6379'),
+    };
+  }
+  // Fallback for local development
+  return {
+    host: process.env.REDIS_HOST || '127.0.0.1',
+    port: parseInt(process.env.REDIS_PORT || '6379'),
+  };
+}
 
 @Module({
   imports: [
@@ -19,24 +37,21 @@ import { LoggingMiddleware } from './middleware/logging.middleware'; // Make sur
     // Rate limiting
     ThrottlerModule.forRoot([
       {
-        ttl: 60000, // 1 minute
-        limit: 100, // 100 requests per minute
+        ttl: 60000, 
+        limit: 100, 
       },
     ]),
     
     BullModule.forRoot({
-      connection: {
-        host: process.env.REDIS_HOST || '127.0.0.1',
-        port: parseInt(process.env.REDIS_PORT || '6379'),
-      },
+      connection: getRedisConnection(),
     }),
     
     PrismaModule,
     ScrapeModule,
     ApiModule,
   ],
+  controllers: [HealthController],
   providers: [
-    // Apply rate limiting globally
     {
       provide: APP_GUARD,
       useClass: ThrottlerGuard,
