@@ -12,18 +12,28 @@ import { HealthController } from './health/health.controller';
 
 // Helper function to parse Redis connection
 function getRedisConnection() {
-  if (process.env.REDIS_URL) {
-    // Parse Redis URL (format: redis://hostname:port)
-    const url = new URL(process.env.REDIS_URL);
-    return {
-      host: url.hostname,
-      port: parseInt(url.port || '6379'),
-    };
+  const redisUrl = process.env.REDIS_URL;
+  
+  if (redisUrl) {
+    try {
+      const formattedUrl = redisUrl.startsWith('redis://') ? redisUrl : `redis://${redisUrl}`;
+      const url = new URL(formattedUrl);
+      
+      return {
+        host: url.hostname,
+        port: parseInt(url.port || '6379'),
+        password: url.password || undefined,
+        username: url.username || undefined,
+      };
+    } catch (error) {
+      console.error('Failed to parse REDIS_URL, falling back to components:', error.message);
+    }
   }
-  // Fallback for local development
+
   return {
     host: process.env.REDIS_HOST || '127.0.0.1',
     port: parseInt(process.env.REDIS_PORT || '6379'),
+    password: process.env.REDIS_PASSWORD || undefined,
   };
 }
 
