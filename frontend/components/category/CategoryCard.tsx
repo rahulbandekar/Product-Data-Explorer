@@ -21,7 +21,7 @@ export default function CategoryCard({ category }: CategoryCardProps) {
             {category.title}
           </h3>
           <p className="text-sm text-gray-500">
-            {category.product_count} products
+            {category.productCount} products
           </p>
         </div>
         <div className="text-blue-600 text-sm font-medium">
