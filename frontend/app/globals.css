@@ -15,3 +15,16 @@ body {
     )
     rgb(var(--background-start-rgb));
 }
+
+/* Optional: Add some custom styles */
+@layer base {
+  :root {
+    --radius: 0.5rem;
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+}

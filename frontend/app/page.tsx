@@ -1,18 +1,28 @@
-import { apiClient, Navigation } from '@/lib/api';
+'use client';
+
+import { useNavigation, useScrapeNavigation } from '@/hooks/use-api';
 import Link from 'next/link';
 import ScrapeButton from '@/components/ScrapeButton';
+import LoadingSpinner from '@/components/common/LoadingSpinner';
 
-export default async function HomePage() {
-  let navigations: Navigation[] = [];
-  let error: string | null = null;
+export default function HomePage() {
+  const { data: navigationData, isLoading, error, refetch } = useNavigation();
+  const scrapeNavigation = useScrapeNavigation();
 
-  try {
-    const response = await apiClient.getNavigation();
-    navigations = response.data;
-  } catch (err: any) {
-    console.error('Failed to fetch navigation:', err);
-    error = err.message;
-  }
+  const navigations = navigationData?.data || [];
+  const errorMessage = error?.message || navigationData?.error;
+
+  const handleScrape = async () => {
+    try {
+      await scrapeNavigation.mutateAsync(true);
+      // Refetch navigation after scrape
+      setTimeout(() => {
+        refetch();
+      }, 3000);
+    } catch (err) {
+      console.error('Scrape failed:', err);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100">
@@ -32,7 +42,7 @@ export default async function HomePage() {
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Error Message */}
-        {error && (
+        {errorMessage && (
           <div className="mb-8 p-4 bg-red-50 border border-red-200 rounded-lg">
             <div className="flex">
               <div className="flex-shrink-0">
@@ -71,7 +81,12 @@ export default async function HomePage() {
             </div>
           </div>
 
-          {navigations.length === 0 ? (
+          {isLoading ? (
+            <div className="text-center py-12">
+              <LoadingSpinner size="lg" />
+              <p className="mt-4 text-gray-600">Loading navigation...</p>
+            </div>
+          ) : navigations.length === 0 ? (
             <div className="text-center py-12 bg-white rounded-lg border-2 border-dashed border-gray-300">
               <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
@@ -81,7 +96,13 @@ export default async function HomePage() {
                 The database is empty. Click the button below to trigger scraping from World of Books.
               </p>
               <div className="mt-6">
-                <ScrapeButton />
+                <button
+                  onClick={handleScrape}
+                  disabled={scrapeNavigation.isPending}
+                  className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
+                >
+                  {scrapeNavigation.isPending ? 'Scraping...' : 'Trigger Navigation Scrape'}
+                </button>
               </div>
             </div>
           ) : (

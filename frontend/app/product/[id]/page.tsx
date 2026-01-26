@@ -1,23 +1,66 @@
-import { apiClient } from '@/lib/api';
+'use client';
+
+import { useParams, useRouter } from 'next/navigation';
+import { useProduct, useRefreshProduct } from '@/hooks/use-api';
 import Link from 'next/link';
+import LoadingSpinner from '@/components/common/LoadingSpinner';
+import { Star, ShoppingBag, Share2, Heart, ChevronRight, ExternalLink, RefreshCw } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { apiService } from '@/services/api.service';
 
-interface PageProps {
-  params: {
-    id: string;
+export default function ProductDetailPage() {
+  const params = useParams();
+  const router = useRouter();
+  const productId = parseInt(params.id as string);
+
+  const { data: productData, isLoading, error, refetch } = useProduct(productId);
+  const refreshProduct = useRefreshProduct(productId);
+  
+  const [isLiked, setIsLiked] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [reviews, setReviews] = useState<any[]>([]);
+
+  const product = productData?.data;
+  
+  // Fetch reviews separately
+  useEffect(() => {
+    const fetchReviews = async () => {
+      try {
+        const response = await apiService.getProductReviews(productId);
+        if (response.success && response.data) {
+          setReviews(response.data);
+        }
+      } catch (err) {
+        console.error('Failed to fetch reviews:', err);
+      }
+    };
+
+    if (productId) {
+      fetchReviews();
+    }
+  }, [productId]);
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    try {
+      await refreshProduct.mutateAsync();
+      // Wait a bit then refetch
+      setTimeout(() => {
+        refetch();
+        setIsRefreshing(false);
+      }, 2000);
+    } catch (err) {
+      console.error('Refresh failed:', err);
+      setIsRefreshing(false);
+    }
   };
-}
 
-export default async function ProductDetailPage({ params }: PageProps) {
-  const productId = parseInt(params.id);
-  let product = null;
-  let error = null;
-
-  try {
-    const response = await apiClient.getProduct(productId);
-    product = response.data;
-  } catch (err: any) {
-    console.error('Failed to fetch product:', err);
-    error = err.message;
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <LoadingSpinner size="lg" />
+      </div>
+    );
   }
 
   if (error || !product) {
@@ -41,12 +84,21 @@ export default async function ProductDetailPage({ params }: PageProps) {
             </div>
             <h2 className="text-2xl font-bold text-gray-900">Product Not Found</h2>
             <p className="mt-2 text-gray-600">The requested product could not be loaded.</p>
-            {error && <p className="mt-1 text-sm text-red-500">{error}</p>}
+            {error instanceof Error && <p className="mt-1 text-sm text-red-500">{error.message}</p>}
+            <button
+              onClick={() => router.push('/')}
+              className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              Return to Home
+            </button>
           </div>
         </div>
       </div>
     );
   }
+
+  const averageRating = product.detail?.ratingsAvg || 0;
+  const reviewCount = reviews.length || product.detail?.reviewsCount || 0;
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -71,36 +123,69 @@ export default async function ProductDetailPage({ params }: PageProps) {
                 </Link>
               </div>
             </li>
+            {product.category && (
+              <>
+                <li>
+                  <div className="flex items-center">
+                    <svg className="flex-shrink-0 h-5 w-5 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
+                    </svg>
+                    <Link 
+                      href={`/categories/${product.category.id}`}
+                      className="ml-4 text-sm font-medium text-gray-500 hover:text-gray-700"
+                    >
+                      {product.category.title}
+                    </Link>
+                  </div>
+                </li>
+              </>
+            )}
             <li>
               <div className="flex items-center">
                 <svg className="flex-shrink-0 h-5 w-5 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
                   <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
                 </svg>
-                <span className="ml-4 text-sm font-medium text-gray-500">Product Details</span>
+                <span className="ml-4 text-sm font-medium text-gray-700 line-clamp-1">
+                  {product.title}
+                </span>
               </div>
             </li>
           </ol>
         </nav>
 
         {/* Product Detail Card */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden mb-8">
           <div className="md:flex">
             {/* Product Image */}
-            {product.imageUrl && (
-              <div className="md:w-1/3 p-8">
-                <div className="aspect-square overflow-hidden rounded-lg bg-gray-100">
+            <div className="md:w-2/5 p-8">
+              <div className="aspect-square overflow-hidden rounded-lg bg-gray-100">
+                {product.imageUrl ? (
                   <img
                     src={product.imageUrl}
                     alt={product.title}
                     className="w-full h-full object-contain"
                   />
-                </div>
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center text-gray-400">
+                    <svg className="h-24 w-24" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                  </div>
+                )}
               </div>
-            )}
+            </div>
 
             {/* Product Info */}
-            <div className="md:w-2/3 p-8">
-              <h1 className="text-3xl font-bold text-gray-900 mb-4">{product.title}</h1>
+            <div className="md:w-3/5 p-8">
+              <div className="flex justify-between items-start mb-4">
+                <h1 className="text-3xl font-bold text-gray-900">{product.title}</h1>
+                <button
+                  onClick={() => setIsLiked(!isLiked)}
+                  className={`p-2 rounded-full ${isLiked ? 'text-red-500' : 'text-gray-400 hover:text-red-500'}`}
+                >
+                  <Heart className={`h-6 w-6 ${isLiked ? 'fill-current' : ''}`} />
+                </button>
+              </div>
               
               {product.author && (
                 <p className="text-lg text-gray-700 mb-4">
@@ -108,87 +193,214 @@ export default async function ProductDetailPage({ params }: PageProps) {
                 </p>
               )}
               
+              {/* Rating */}
+              <div className="flex items-center mb-6">
+                <div className="flex items-center">
+                  {[1, 2, 3, 4, 5].map((star) => (
+                    <Star
+                      key={star}
+                      className={`h-5 w-5 ${star <= Math.round(averageRating) ? 'text-yellow-400 fill-current' : 'text-gray-300'}`}
+                    />
+                  ))}
+                </div>
+                <span className="ml-2 text-gray-700">
+                  {averageRating.toFixed(1)} ({reviewCount} reviews)
+                </span>
+              </div>
+              
+              {/* Price */}
               {product.price !== null && (
-                <p className="text-3xl font-bold text-gray-900 mb-6">
-                  {product.currency || '$'} {product.price.toFixed(2)}
-                </p>
-              )}
-              
-              {product.detail?.description && (
-                <div className="mb-8">
-                  <h2 className="text-xl font-semibold text-gray-800 mb-3">Description</h2>
-                  <div className="text-gray-600 leading-relaxed">
-                    {product.detail.description}
-                  </div>
-                </div>
-              )}
-              
-              {/* Specifications */}
-              {product.detail?.specs && (
-                <div className="mb-8">
-                  <h2 className="text-xl font-semibold text-gray-800 mb-3">Specifications</h2>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {Object.entries(product.detail.specs).map(([key, value]) => (
-                      <div key={key} className="flex items-center">
-                        <span className="font-medium text-gray-700 mr-2 capitalize">{key}:</span>
-                        <span className="text-gray-600">{String(value)}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-              
-              {/* Ratings */}
-              {product.detail?.ratingsAvg && (
-                <div className="mb-8">
-                  <h2 className="text-xl font-semibold text-gray-800 mb-3">Ratings</h2>
-                  <div className="flex items-center">
-                    <div className="flex items-center">
-                      {[...Array(5)].map((_, i) => (
-                        <svg
-                          key={i}
-                          className={`w-5 h-5 ${i < Math.floor(product.detail!.ratingsAvg!) ? 'text-yellow-400' : 'text-gray-300'}`}
-                          fill="currentColor"
-                          viewBox="0 0 20 20"
-                        >
-                          <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                        </svg>
-                      ))}
-                    </div>
-                    <span className="ml-2 text-gray-700">
-                      {product.detail!.ratingsAvg!.toFixed(1)} ({product.detail!.reviewsCount || 0} reviews)
-                    </span>
-                  </div>
+                <div className="mb-6">
+                  <p className="text-3xl font-bold text-gray-900">
+                    {product.currency || '$'} {product.price.toFixed(2)}
+                  </p>
+                  {product.lastScrapedAt && (
+                    <p className="text-sm text-gray-500 mt-1">
+                      Price last updated: {new Date(product.lastScrapedAt).toLocaleDateString()}
+                    </p>
+                  )}
                 </div>
               )}
               
               {/* Actions */}
-              <div className="flex flex-wrap gap-4 mt-8">
+              <div className="flex flex-wrap gap-4 mb-8">
                 <a
                   href={product.sourceUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+                  className="inline-flex items-center px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
                 >
+                  <ExternalLink className="h-5 w-5 mr-2" />
                   View on World of Books
                 </a>
                 
                 <button
-                  onClick={async () => {
-                    try {
-                      const response = await fetch(`http://localhost:4000/products/${productId}/refresh`, {
-                        method: 'POST',
-                      });
-                      const result = await response.json();
-                      alert(result.message || 'Refresh queued!');
-                    } catch (err: any) {
-                      alert('Failed to refresh product');
-                    }
-                  }}
-                  className="px-6 py-3 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors font-medium"
+                  onClick={handleRefresh}
+                  disabled={isRefreshing || refreshProduct.isPending}
+                  className="inline-flex items-center px-6 py-3 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors font-medium disabled:opacity-50"
                 >
-                  Refresh Data
+                  {isRefreshing || refreshProduct.isPending ? (
+                    <>
+                      <RefreshCw className="h-5 w-5 mr-2 animate-spin" />
+                      Refreshing...
+                    </>
+                  ) : (
+                    <>
+                      <RefreshCw className="h-5 w-5 mr-2" />
+                      Refresh Data
+                    </>
+                  )}
                 </button>
+
+                <button className="inline-flex items-center px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium">
+                  <Share2 className="h-5 w-5 mr-2" />
+                  Share
+                </button>
+              </div>
+
+              {/* Product Metadata */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                {product.category && (
+                  <div>
+                    <span className="text-sm font-medium text-gray-700">Category:</span>
+                    <Link 
+                      href={`/categories/${product.category.id}`}
+                      className="ml-2 text-sm text-blue-600 hover:text-blue-700"
+                    >
+                      {product.category.title}
+                    </Link>
+                  </div>
+                )}
+                
+                {product.sourceId && (
+                  <div>
+                    <span className="text-sm font-medium text-gray-700">Source ID:</span>
+                    <span className="ml-2 text-sm text-gray-600">{product.sourceId}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Description & Details */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          {/* Description & Specs */}
+          <div className="lg:col-span-2 space-y-8">
+            {/* Description */}
+            {product.detail?.description && (
+              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                <h2 className="text-xl font-semibold text-gray-800 mb-4">Description</h2>
+                <div className="text-gray-600 leading-relaxed prose max-w-none">
+                  {product.detail.description}
+                </div>
+              </div>
+            )}
+
+            {/* Specifications */}
+            {product.detail?.specs && Object.keys(product.detail.specs).length > 0 && (
+              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                <h2 className="text-xl font-semibold text-gray-800 mb-4">Specifications</h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {Object.entries(product.detail.specs).map(([key, value]) => (
+                    value && (
+                      <div key={key} className="flex items-start">
+                        <span className="font-medium text-gray-700 mr-2 capitalize min-w-[120px]">
+                          {key.replace(/([A-Z])/g, ' $1').trim()}:
+                        </span>
+                        <span className="text-gray-600">{String(value)}</span>
+                      </div>
+                    )
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Reviews Sidebar */}
+          <div className="space-y-8">
+            {/* Rating Summary */}
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+              <h2 className="text-xl font-semibold text-gray-800 mb-4">Customer Reviews</h2>
+              <div className="text-center mb-6">
+                <div className="text-5xl font-bold text-gray-900 mb-2">
+                  {averageRating.toFixed(1)}
+                </div>
+                <div className="flex justify-center mb-2">
+                  {[1, 2, 3, 4, 5].map((star) => (
+                    <Star
+                      key={star}
+                      className={`h-6 w-6 ${star <= Math.round(averageRating) ? 'text-yellow-400 fill-current' : 'text-gray-300'}`}
+                    />
+                  ))}
+                </div>
+                <p className="text-gray-600">{reviewCount} reviews</p>
+              </div>
+            </div>
+
+            {/* Recent Reviews */}
+            {reviews.length > 0 ? (
+              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                <h3 className="font-semibold text-gray-800 mb-4">Recent Reviews</h3>
+                <div className="space-y-4">
+                  {reviews.slice(0, 3).map((review: any, index: number) => (
+                    <div key={index} className="border-b border-gray-100 pb-4 last:border-0 last:pb-0">
+                      <div className="flex items-center mb-2">
+                        <div className="flex items-center">
+                          {[1, 2, 3, 4, 5].map((star) => (
+                            <Star
+                              key={star}
+                              className={`h-4 w-4 ${star <= (review.rating || 0) ? 'text-yellow-400 fill-current' : 'text-gray-300'}`}
+                            />
+                          ))}
+                        </div>
+                        <span className="ml-2 text-sm font-medium text-gray-900">
+                          {review.rating?.toFixed(1)}
+                        </span>
+                      </div>
+                      <p className="text-gray-600 text-sm mb-1">{review.text}</p>
+                      <p className="text-xs text-gray-500">
+                        {review.author} • {new Date(review.createdAt).toLocaleDateString()}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+                {reviews.length > 3 && (
+                  <button className="w-full mt-4 text-center text-sm text-blue-600 hover:text-blue-700">
+                    View all {reviews.length} reviews
+                  </button>
+                )}
+              </div>
+            ) : (
+              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                <h3 className="font-semibold text-gray-800 mb-2">No Reviews Yet</h3>
+                <p className="text-gray-600 text-sm">
+                  This product doesn't have any reviews yet. Check back later or visit the original listing.
+                </p>
+              </div>
+            )}
+
+            {/* Scraping Info */}
+            <div className="bg-blue-50 rounded-xl p-6">
+              <h3 className="font-semibold text-blue-900 mb-2">Scraping Information</h3>
+              <div className="space-y-2 text-sm text-blue-800">
+                <div className="flex justify-between">
+                  <span>Last Scraped:</span>
+                  <span className="font-medium">
+                    {product.lastScrapedAt 
+                      ? new Date(product.lastScrapedAt).toLocaleDateString()
+                      : 'Never'
+                    }
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Data Source:</span>
+                  <span className="font-medium">World of Books</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Product ID:</span>
+                  <span className="font-medium">{product.sourceId}</span>
+                </div>
               </div>
             </div>
           </div>
