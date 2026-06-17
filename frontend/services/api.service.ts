@@ -1,4 +1,4 @@
-import { apiClient, ApiResponse } from '@/lib/api-client';
+import { apiClient, ApiResponse } from "@/lib/api-client";
 
 // Types matching Prisma schema
 export interface Navigation {
@@ -66,7 +66,7 @@ export interface ScrapeJob {
   id: number;
   targetUrl: string;
   targetType: string;
-  status: 'PENDING' | 'RUNNING' | 'SUCCESS' | 'FAILED' | 'SKIPPED';
+  status: "PENDING" | "RUNNING" | "SUCCESS" | "FAILED" | "SKIPPED";
   startedAt: string;
   finishedAt: string | null;
   errorLog: string | null;
@@ -85,15 +85,19 @@ export interface PaginatedResponse<T> {
 class ApiService {
   // Navigation endpoints
   async getNavigation(): Promise<ApiResponse<Navigation[]>> {
-    return apiClient.get('/navigation');
+    return apiClient.get("/navigation");
   }
 
-  async scrapeNavigation(force: boolean = false): Promise<ApiResponse<{ jobId: string; message: string }>> {
-    return apiClient.post('/scrape/navigation', { force });
+  async scrapeNavigation(
+    force: boolean = false,
+  ): Promise<ApiResponse<{ jobId: string; message: string }>> {
+    return apiClient.post("/scrape/navigation", { force });
   }
 
   // Category endpoints
-  async getCategoriesByNavigation(navigationId: number): Promise<ApiResponse<Category[]>> {
+  async getCategoriesByNavigation(
+    navigationId: number,
+  ): Promise<ApiResponse<Category[]>> {
     return apiClient.get(`/categories/by-navigation/${navigationId}`);
   }
 
@@ -101,7 +105,10 @@ class ApiService {
     return apiClient.get(`/categories/${categoryId}`);
   }
 
-  async scrapeCategories(navigationId: number, force: boolean = false): Promise<ApiResponse<{ jobId: string; message: string }>> {
+  async scrapeCategories(
+    navigationId: number,
+    force: boolean = false,
+  ): Promise<ApiResponse<{ jobId: string; message: string }>> {
     return apiClient.post(`/scrape/categories/${navigationId}`, { force });
   }
 
@@ -115,52 +122,77 @@ class ApiService {
     maxPrice?: number;
     minRating?: number;
   }): Promise<ApiResponse<PaginatedResponse<Product>>> {
-    return apiClient.get('/products', params);
+    return apiClient.get("/products", params);
   }
 
   async getProduct(productId: number): Promise<ApiResponse<Product>> {
     return apiClient.get(`/products/${productId}`);
   }
 
-  async scrapeProducts(categoryId: number, force: boolean = false, url?: string): Promise<ApiResponse<{ jobId: string; message: string }>> {
+  async scrapeProducts(
+    categoryId: number,
+    force: boolean = false,
+    url?: string,
+  ): Promise<ApiResponse<{ jobId: string; message: string }>> {
     return apiClient.post(`/scrape/products/${categoryId}`, { force, url });
   }
 
-  async refreshProduct(productId: number): Promise<ApiResponse<{ jobId: string; message: string }>> {
+  async refreshProduct(
+    productId: number,
+  ): Promise<ApiResponse<{ jobId: string; message: string }>> {
     return apiClient.post(`/products/${productId}/refresh`);
   }
 
   // Product detail endpoints
-  async scrapeProductDetail(productId: number, force: boolean = false): Promise<ApiResponse<{ jobId: string; message: string }>> {
+  async scrapeProductDetail(
+    productId: number,
+    force: boolean = false,
+  ): Promise<ApiResponse<{ jobId: string; message: string }>> {
     return apiClient.post(`/scrape/product-detail/${productId}`, { force });
   }
 
   // Review endpoints
   async getProductReviews(productId: number): Promise<ApiResponse<Review[]>> {
-    return apiClient.get(`/products/${productId}/reviews`);
+    // Backend exposes reviews at /reviews/by-product/:productId
+    return apiClient.get(`/reviews/by-product/${productId}`);
   }
 
   // Scrape job monitoring
   async getScrapeJob(jobId: string): Promise<ApiResponse<ScrapeJob>> {
-    return apiClient.get(`/scrape/jobs/${jobId}`);
+    // Backend exposes scrape jobs at /scrape-jobs/:id
+    return apiClient.get(`/scrape-jobs/${jobId}`);
   }
 
-  async getRecentScrapeJobs(limit: number = 10): Promise<ApiResponse<ScrapeJob[]>> {
-    return apiClient.get('/scrape/jobs/recent', { limit });
+  async getRecentScrapeJobs(
+    limit: number = 10,
+  ): Promise<ApiResponse<ScrapeJob[]>> {
+    // Backend exposes scrape jobs collection at /scrape-jobs with filters;
+    // for now, fetch first page with given limit.
+    return apiClient.get("/scrape-jobs", { limit });
   }
 
   // Search
-  async searchProducts(query: string, filters?: any): Promise<ApiResponse<PaginatedResponse<Product>>> {
-    return apiClient.get('/search/products', { q: query, ...filters });
+  async searchProducts(
+    query: string,
+    filters?: any,
+  ): Promise<ApiResponse<PaginatedResponse<Product>>> {
+    return apiClient.get("/search/products", { q: query, ...filters });
   }
 
   // History tracking
-  async trackView(path: string, sessionId?: string): Promise<ApiResponse<void>> {
-    return apiClient.post('/history/view', { path, sessionId });
+  async trackView(
+    path: string,
+    sessionId?: string,
+  ): Promise<ApiResponse<void>> {
+    // Backend exposes view history at /view-history/track
+    return apiClient.post("/view-history/track", { path, sessionId });
   }
 
-  async getBrowsingHistory(sessionId?: string): Promise<ApiResponse<Array<{ path: string; createdAt: string }>>> {
-    return apiClient.get('/history/browsing', { sessionId });
+  async getBrowsingHistory(
+    sessionId?: string,
+  ): Promise<ApiResponse<Array<{ path: string; createdAt: string }>>> {
+    // Backend exposes recent views at /view-history/recent
+    return apiClient.get("/view-history/recent", { sessionId });
   }
 }
 

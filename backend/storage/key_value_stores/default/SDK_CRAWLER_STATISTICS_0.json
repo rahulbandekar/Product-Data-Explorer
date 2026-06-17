@@ -1,50 +1,29 @@
 {
-  "requestsFinished": 0,
-  "requestsFailed": 1,
-  "requestsRetries": 1,
+  "requestsFinished": 1,
+  "requestsFailed": 0,
+  "requestsRetries": 0,
   "requestsFailedPerMinute": 0,
-  "requestsFinishedPerMinute": 0,
-  "requestMinDurationMillis": null,
-  "requestMaxDurationMillis": 0,
-  "requestTotalFailedDurationMillis": 60163,
-  "requestTotalFinishedDurationMillis": 0,
-  "crawlerStartedAt": "2026-01-21T16:20:04.835Z",
-  "crawlerFinishedAt": "2026-01-21T16:24:08.418Z",
-  "statsPersistedAt": "2026-01-21T16:24:08.418Z",
-  "crawlerRuntimeMillis": 244700,
-  "crawlerLastStartTimestamp": 1769012403718,
+  "requestsFinishedPerMinute": 1,
+  "requestMinDurationMillis": 41122,
+  "requestMaxDurationMillis": 41122,
+  "requestTotalFailedDurationMillis": 0,
+  "requestTotalFinishedDurationMillis": 41122,
+  "crawlerStartedAt": "2026-02-26T20:29:18.872Z",
+  "crawlerFinishedAt": "2026-02-26T20:30:01.860Z",
+  "statsPersistedAt": "2026-02-26T20:30:01.860Z",
+  "crawlerRuntimeMillis": 51258,
+  "crawlerLastStartTimestamp": 1772137750602,
   "requestRetryHistogram": [
-    null,
-    null,
-    null,
     1
   ],
   "statsId": 0,
-  "requestAvgFailedDurationMillis": 60163,
-  "requestAvgFinishedDurationMillis": null,
-  "requestTotalDurationMillis": 60163,
+  "requestAvgFailedDurationMillis": null,
+  "requestAvgFinishedDurationMillis": 41122,
+  "requestTotalDurationMillis": 41122,
   "requestsTotal": 1,
-  "requestsWithStatusCode": {},
-  "errors": {
-    "/Users/rahul/Desktop/product-data-explorer/backend/node_modules/@crawlee/src/crawlers/crawler_utils.ts:13:11": {
-      "missing error code": {
-        "Error": {
-          "Navigation timed out after 60 seconds.": {
-            "count": 1
-          }
-        }
-      }
-    }
+  "requestsWithStatusCode": {
+    "200": 1
   },
-  "retryErrors": {
-    "/Users/rahul/Desktop/product-data-explorer/backend/node_modules/@crawlee/src/crawlers/crawler_utils.ts:13:11": {
-      "missing error code": {
-        "Error": {
-          "Navigation timed out after 60 seconds.": {
-            "count": 3
-          }
-        }
-      }
-    }
-  }
+  "errors": {},
+  "retryErrors": {}
 }
