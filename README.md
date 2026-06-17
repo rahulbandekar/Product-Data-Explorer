@@ -12,39 +12,19 @@ A full-stack product exploration platform built for the World of Books assignmen
 
 ## Architecture Overview
 
-┌─────────────────┐ REST API ┌──────────────────────────────┐
+```mermaid
+graph LR
+    FE["Frontend\nNext.js 15 / Vercel"]
+    BE["NestJS Backend\nRailway"]
+    PG[("PostgreSQL\nRailway")]
+    RD[("Redis\nRailway")]
+    WOB["worldofbooks.com"]
 
-│ Next.js 15 │ ──────────────→ │ NestJS Backend (Railway) │
-
-│ (Vercel) │ ←────────────── │ │
-
-│ │ │ ┌─────────┐ ┌──────────┐ │
-
-│ React Query │ │ │Prisma │ │BullMQ │ │
-
-│ Tailwind CSS │ │ │ORM │ │Workers │ │
-
-│ TypeScript │ │ └────┬────┘ └────┬─────┘ │
-
-└─────────────────┘ │ │ │ │
-
-│ ┌────▼────┐ ┌───▼──────┐ │
-
-│ │Postgres │ │ Redis │ │
-
-│ │(Railway)│ │(Railway) │ │
-
-│ └─────────┘ └──────────┘ │
-
-└──────────────────────────────┘
-
-│
-
-│ HTTP scraping
-
-▼
-
-worldofbooks.com
+    FE <-->|REST API| BE
+    BE --> PG
+    BE --> RD
+    BE -->|HTTP scraping| WOB
+```
 
 ### Request flow
 
