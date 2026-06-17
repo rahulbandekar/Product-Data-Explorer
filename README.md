@@ -83,11 +83,11 @@ Every scraped entity stores `lastScrapedAt`. Workers skip re-scraping if data is
 
 ```mermaid
 erDiagram
-    Navigation ||--o{ Category : "has"
-    Category ||--o{ Category : "parent/children"
-    Category ||--o{ Product : "has"
-    Product ||--o| ProductDetail : "has"
-    Product ||--o{ Review : "has"
+    Navigation ||--o{ Category : has
+    Category ||--o{ Category : parent-child
+    Category ||--o{ Product : has
+    Product ||--o| ProductDetail : has
+    Product ||--o{ Review : has
 
     Navigation {
         int id PK
@@ -95,6 +95,7 @@ erDiagram
         string slug UK
         datetime lastScrapedAt
     }
+
     Category {
         int id PK
         int navigationId FK
@@ -103,6 +104,7 @@ erDiagram
         string slug
         datetime lastScrapedAt
     }
+
     Product {
         int id PK
         string sourceId UK
@@ -113,13 +115,15 @@ erDiagram
         int categoryId FK
         datetime lastScrapedAt
     }
+
     ProductDetail {
-        int productId PK FK
+        int productId PK
         string description
-        json specs
+        string specs
         float ratingsAvg
         int reviewsCount
     }
+
     Review {
         int id PK
         int productId FK
@@ -127,6 +131,7 @@ erDiagram
         float rating
         string text
     }
+
     ScrapeJob {
         int id PK
         string targetUrl
@@ -135,10 +140,11 @@ erDiagram
         datetime startedAt
         datetime finishedAt
     }
+
     ViewHistory {
         int id PK
         string sessionId
-        json pathJson
+        string pathJson
         datetime createdAt
     }
 ```
