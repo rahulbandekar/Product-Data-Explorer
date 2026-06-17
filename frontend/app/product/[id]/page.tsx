@@ -4,15 +4,7 @@ import { useParams, useRouter } from "next/navigation";
 import { useProduct, useRefreshProduct, useProducts } from "@/hooks/use-api";
 import Link from "next/link";
 import LoadingSpinner from "@/components/common/LoadingSpinner";
-import {
-  Star,
-  ShoppingBag,
-  Share2,
-  Heart,
-  ChevronRight,
-  ExternalLink,
-  RefreshCw,
-} from "lucide-react";
+import { Star, Share2, Heart, ExternalLink, RefreshCw } from "lucide-react";
 import { useState, useEffect } from "react";
 import { apiService } from "@/services/api.service";
 
@@ -34,37 +26,35 @@ export default function ProductDetailPage() {
   const [reviews, setReviews] = useState<any[]>([]);
 
   const product = productData?.data;
-  const categoryId = productData?.data?.categoryId;
 
-  const { data: relatedProductsData, isLoading: relatedLoading } = useProducts({
-    categoryId,
-    page: 1,
-    limit: 8,
-  });
+  // Fetch recommendations — same category, exclude current product
+  const { data: recommendationsData } = useProducts(
+    product?.categoryId
+      ? { categoryId: product.categoryId, limit: 5, page: 1 }
+      : undefined
+  );
+  const recommendations = (recommendationsData?.data?.data || [])
+    .filter((p: any) => p.id !== productId)
+    .slice(0, 4);
 
-  // Fetch reviews separately
   useEffect(() => {
     const fetchReviews = async () => {
       try {
         const response = await apiService.getProductReviews(productId);
         if (response.success && response.data) {
-          setReviews(response.data);
+          setReviews(response.data as any[]);
         }
       } catch (err) {
         console.error("Failed to fetch reviews:", err);
       }
     };
-
-    if (productId) {
-      fetchReviews();
-    }
+    if (productId) fetchReviews();
   }, [productId]);
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
     try {
       await refreshProduct.mutateAsync();
-      // Wait a bit then refetch
       setTimeout(() => {
         refetch();
         setIsRefreshing(false);
@@ -87,53 +77,16 @@ export default function ProductDetailPage() {
     return (
       <div className="min-h-screen bg-gray-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <Link
-            href="/"
-            className="inline-flex items-center text-sm font-medium text-blue-600 hover:text-blue-500 mb-6"
-          >
-            <svg
-              className="mr-1 h-4 w-4"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M10 19l-7-7m0 0l7-7m-7 7h18"
-              />
-            </svg>
-            Back to Home
-          </Link>
           <div className="text-center py-12">
-            <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-red-100 mb-4">
-              <svg
-                className="w-8 h-8 text-red-600"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                />
-              </svg>
-            </div>
             <h2 className="text-2xl font-bold text-gray-900">
               Product Not Found
             </h2>
             <p className="mt-2 text-gray-600">
               The requested product could not be loaded.
             </p>
-            {error instanceof Error && (
-              <p className="mt-1 text-sm text-red-500">{error.message}</p>
-            )}
             <button
               onClick={() => router.push("/")}
-              className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
             >
               Return to Home
             </button>
@@ -146,11 +99,6 @@ export default function ProductDetailPage() {
   const averageRating = product.detail?.ratingsAvg || 0;
   const reviewCount = reviews.length || product.detail?.reviewsCount || 0;
 
-  const allRelated = relatedProductsData?.data?.data || [];
-  const relatedProducts = allRelated
-    .filter((p: any) => p.id !== product.id)
-    .slice(0, 4);
-
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -159,86 +107,33 @@ export default function ProductDetailPage() {
           <ol className="flex items-center space-x-4">
             <li>
               <Link href="/" className="text-gray-400 hover:text-gray-500">
-                <svg
-                  className="flex-shrink-0 h-5 w-5"
-                  fill="currentColor"
-                  viewBox="0 0 20 20"
-                >
-                  <path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z" />
-                </svg>
+                Home
               </Link>
             </li>
-            <li>
-              <div className="flex items-center">
-                <svg
-                  className="flex-shrink-0 h-5 w-5 text-gray-400"
-                  fill="currentColor"
-                  viewBox="0 0 20 20"
-                >
-                  <path
-                    fillRule="evenodd"
-                    d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z"
-                    clipRule="evenodd"
-                  />
-                </svg>
-                <Link
-                  href="/"
-                  className="ml-4 text-sm font-medium text-gray-500 hover:text-gray-700"
-                >
-                  Home
-                </Link>
-              </div>
-            </li>
             {product.category && (
-              <>
-                <li>
-                  <div className="flex items-center">
-                    <svg
-                      className="flex-shrink-0 h-5 w-5 text-gray-400"
-                      fill="currentColor"
-                      viewBox="0 0 20 20"
-                    >
-                      <path
-                        fillRule="evenodd"
-                        d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z"
-                        clipRule="evenodd"
-                      />
-                    </svg>
-                    <Link
-                      href={`/categories/${product.category.id}`}
-                      className="ml-4 text-sm font-medium text-gray-500 hover:text-gray-700"
-                    >
-                      {product.category.title}
-                    </Link>
-                  </div>
-                </li>
-              </>
-            )}
-            <li>
-              <div className="flex items-center">
-                <svg
-                  className="flex-shrink-0 h-5 w-5 text-gray-400"
-                  fill="currentColor"
-                  viewBox="0 0 20 20"
+              <li className="flex items-center">
+                <span className="mx-2 text-gray-400">/</span>
+                <Link
+                  href={`/categories/${product.category.id}`}
+                  className="text-gray-500 hover:text-gray-700 text-sm font-medium"
                 >
-                  <path
-                    fillRule="evenodd"
-                    d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z"
-                    clipRule="evenodd"
-                  />
-                </svg>
-                <span className="ml-4 text-sm font-medium text-gray-700 line-clamp-1">
-                  {product.title}
-                </span>
-              </div>
+                  {product.category.title}
+                </Link>
+              </li>
+            )}
+            <li className="flex items-center">
+              <span className="mx-2 text-gray-400">/</span>
+              <span className="text-gray-700 text-sm font-medium line-clamp-1">
+                {product.title}
+              </span>
             </li>
           </ol>
         </nav>
 
-        {/* Product Detail Card */}
+        {/* Product Card */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden mb-8">
           <div className="md:flex">
-            {/* Product Image */}
+            {/* Image */}
             <div className="md:w-2/5 p-8">
               <div className="aspect-square overflow-hidden rounded-lg bg-gray-100">
                 {product.imageUrl ? (
@@ -267,7 +162,7 @@ export default function ProductDetailPage() {
               </div>
             </div>
 
-            {/* Product Info */}
+            {/* Info */}
             <div className="md:w-3/5 p-8">
               <div className="flex justify-between items-start mb-4">
                 <h1 className="text-3xl font-bold text-gray-900">
@@ -275,7 +170,14 @@ export default function ProductDetailPage() {
                 </h1>
                 <button
                   onClick={() => setIsLiked(!isLiked)}
-                  className={`p-2 rounded-full ${isLiked ? "text-red-500" : "text-gray-400 hover:text-red-500"}`}
+                  aria-label={
+                    isLiked ? "Remove from wishlist" : "Add to wishlist"
+                  }
+                  className={`p-2 rounded-full ${
+                    isLiked
+                      ? "text-red-500"
+                      : "text-gray-400 hover:text-red-500"
+                  }`}
                 >
                   <Heart
                     className={`h-6 w-6 ${isLiked ? "fill-current" : ""}`}
@@ -291,11 +193,18 @@ export default function ProductDetailPage() {
 
               {/* Rating */}
               <div className="flex items-center mb-6">
-                <div className="flex items-center">
+                <div
+                  className="flex items-center"
+                  aria-label={`Rating: ${averageRating} out of 5`}
+                >
                   {[1, 2, 3, 4, 5].map((star) => (
                     <Star
                       key={star}
-                      className={`h-5 w-5 ${star <= Math.round(averageRating) ? "text-yellow-400 fill-current" : "text-gray-300"}`}
+                      className={`h-5 w-5 ${
+                        star <= Math.round(averageRating)
+                          ? "text-yellow-400 fill-current"
+                          : "text-gray-300"
+                      }`}
                     />
                   ))}
                 </div>
@@ -308,7 +217,7 @@ export default function ProductDetailPage() {
               {product.price !== null && (
                 <div className="mb-6">
                   <p className="text-3xl font-bold text-gray-900">
-                    {product.currency || "$"} {product.price.toFixed(2)}
+                    {product.currency || "£"} {product.price.toFixed(2)}
                   </p>
                   {product.lastScrapedAt && (
                     <p className="text-sm text-gray-500 mt-1">
@@ -336,17 +245,12 @@ export default function ProductDetailPage() {
                   disabled={isRefreshing || refreshProduct.isPending}
                   className="inline-flex items-center px-6 py-3 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors font-medium disabled:opacity-50"
                 >
-                  {isRefreshing || refreshProduct.isPending ? (
-                    <>
-                      <RefreshCw className="h-5 w-5 mr-2 animate-spin" />
-                      Refreshing...
-                    </>
-                  ) : (
-                    <>
-                      <RefreshCw className="h-5 w-5 mr-2" />
-                      Refresh Data
-                    </>
-                  )}
+                  <RefreshCw
+                    className={`h-5 w-5 mr-2 ${
+                      isRefreshing ? "animate-spin" : ""
+                    }`}
+                  />
+                  {isRefreshing ? "Refreshing..." : "Refresh Data"}
                 </button>
 
                 <button className="inline-flex items-center px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium">
@@ -355,30 +259,27 @@ export default function ProductDetailPage() {
                 </button>
               </div>
 
-              {/* Product Metadata */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+              {/* Metadata */}
+              <div className="grid grid-cols-2 gap-4 text-sm">
                 {product.category && (
                   <div>
-                    <span className="text-sm font-medium text-gray-700">
-                      Category:
+                    <span className="font-medium text-gray-700">
+                      Category:{" "}
                     </span>
                     <Link
                       href={`/categories/${product.category.id}`}
-                      className="ml-2 text-sm text-blue-600 hover:text-blue-700"
+                      className="text-blue-600 hover:text-blue-700"
                     >
                       {product.category.title}
                     </Link>
                   </div>
                 )}
-
                 {product.sourceId && (
                   <div>
-                    <span className="text-sm font-medium text-gray-700">
-                      Source ID:
+                    <span className="font-medium text-gray-700">
+                      Source ID:{" "}
                     </span>
-                    <span className="ml-2 text-sm text-gray-600">
-                      {product.sourceId}
-                    </span>
+                    <span className="text-gray-600">{product.sourceId}</span>
                   </div>
                 )}
               </div>
@@ -386,23 +287,20 @@ export default function ProductDetailPage() {
           </div>
         </div>
 
-        {/* Description & Details */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Description & Specs */}
+        {/* Description + Specs + Reviews */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
           <div className="lg:col-span-2 space-y-8">
-            {/* Description */}
             {product.detail?.description && (
               <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
                 <h2 className="text-xl font-semibold text-gray-800 mb-4">
                   Description
                 </h2>
-                <div className="text-gray-600 leading-relaxed prose max-w-none">
+                <p className="text-gray-600 leading-relaxed">
                   {product.detail.description}
-                </div>
+                </p>
               </div>
             )}
 
-            {/* Specifications */}
             {product.detail?.specs &&
               Object.keys(product.detail.specs).length > 0 && (
                 <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
@@ -410,106 +308,82 @@ export default function ProductDetailPage() {
                     Specifications
                   </h2>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {Object.entries(product.detail.specs).map(
-                      ([key, value]) =>
-                        value && (
-                          <div key={key} className="flex items-start">
-                            <span className="font-medium text-gray-700 mr-2 capitalize min-w-[120px]">
-                              {key.replace(/([A-Z])/g, " $1").trim()}:
-                            </span>
-                            <span className="text-gray-600">
-                              {String(value)}
-                            </span>
-                          </div>
-                        ),
+                    {Object.entries(product.detail.specs).map(([key, value]) =>
+                      value ? (
+                        <div key={key} className="flex items-start">
+                          <span className="font-medium text-gray-700 mr-2 capitalize min-w-[120px]">
+                            {key.replace(/([A-Z])/g, " $1").trim()}:
+                          </span>
+                          <span className="text-gray-600">{String(value)}</span>
+                        </div>
+                      ) : null
                     )}
                   </div>
                 </div>
               )}
           </div>
 
-          {/* Reviews Sidebar */}
-          <div className="space-y-8">
-            {/* Rating Summary */}
+          {/* Reviews sidebar */}
+          <div className="space-y-6">
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
               <h2 className="text-xl font-semibold text-gray-800 mb-4">
                 Customer Reviews
               </h2>
-              <div className="text-center mb-6">
+              <div className="text-center mb-4">
                 <div className="text-5xl font-bold text-gray-900 mb-2">
                   {averageRating.toFixed(1)}
                 </div>
-                <div className="flex justify-center mb-2">
+                <div className="flex justify-center mb-1">
                   {[1, 2, 3, 4, 5].map((star) => (
                     <Star
                       key={star}
-                      className={`h-6 w-6 ${star <= Math.round(averageRating) ? "text-yellow-400 fill-current" : "text-gray-300"}`}
+                      className={`h-5 w-5 ${
+                        star <= Math.round(averageRating)
+                          ? "text-yellow-400 fill-current"
+                          : "text-gray-300"
+                      }`}
                     />
                   ))}
                 </div>
-                <p className="text-gray-600">{reviewCount} reviews</p>
+                <p className="text-gray-500 text-sm">{reviewCount} reviews</p>
               </div>
-            </div>
 
-            {/* Recent Reviews */}
-            {reviews.length > 0 ? (
-              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-                <h3 className="font-semibold text-gray-800 mb-4">
-                  Recent Reviews
-                </h3>
-                <div className="space-y-4">
-                  {reviews.slice(0, 3).map((review: any, index: number) => (
-                    <div
-                      key={index}
-                      className="border-b border-gray-100 pb-4 last:border-0 last:pb-0"
-                    >
-                      <div className="flex items-center mb-2">
-                        <div className="flex items-center">
-                          {[1, 2, 3, 4, 5].map((star) => (
-                            <Star
-                              key={star}
-                              className={`h-4 w-4 ${star <= (review.rating || 0) ? "text-yellow-400 fill-current" : "text-gray-300"}`}
-                            />
-                          ))}
-                        </div>
+              {reviews.length > 0 ? (
+                <div className="space-y-4 mt-4">
+                  {reviews.slice(0, 3).map((review: any, i: number) => (
+                    <div key={i} className="border-t border-gray-100 pt-4">
+                      <div className="flex items-center mb-1">
+                        {[1, 2, 3, 4, 5].map((star) => (
+                          <Star
+                            key={star}
+                            className={`h-4 w-4 ${
+                              star <= (review.rating || 0)
+                                ? "text-yellow-400 fill-current"
+                                : "text-gray-300"
+                            }`}
+                          />
+                        ))}
                         <span className="ml-2 text-sm font-medium text-gray-900">
                           {review.rating?.toFixed(1)}
                         </span>
                       </div>
-                      <p className="text-gray-600 text-sm mb-1">
-                        {review.text}
-                      </p>
-                      <p className="text-xs text-gray-500">
+                      <p className="text-gray-600 text-sm">{review.text}</p>
+                      <p className="text-xs text-gray-400 mt-1">
                         {review.author} •{" "}
                         {new Date(review.createdAt).toLocaleDateString()}
                       </p>
                     </div>
                   ))}
                 </div>
-                {reviews.length > 3 && (
-                  <button className="w-full mt-4 text-center text-sm text-blue-600 hover:text-blue-700">
-                    View all {reviews.length} reviews
-                  </button>
-                )}
-              </div>
-            ) : (
-              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-                <h3 className="font-semibold text-gray-800 mb-2">
-                  No Reviews Yet
-                </h3>
-                <p className="text-gray-600 text-sm">
-                  This product doesn't have any reviews yet. Check back later or
-                  visit the original listing.
-                </p>
-              </div>
-            )}
+              ) : (
+                <p className="text-gray-500 text-sm mt-4">No reviews yet.</p>
+              )}
+            </div>
 
-            {/* Scraping Info */}
+            {/* Scraping info */}
             <div className="bg-blue-50 rounded-xl p-6">
-              <h3 className="font-semibold text-blue-900 mb-2">
-                Scraping Information
-              </h3>
-              <div className="space-y-2 text-sm text-blue-800">
+              <h3 className="font-semibold text-blue-900 mb-2">Data Info</h3>
+              <div className="space-y-1 text-sm text-blue-800">
                 <div className="flex justify-between">
                   <span>Last Scraped:</span>
                   <span className="font-medium">
@@ -519,55 +393,65 @@ export default function ProductDetailPage() {
                   </span>
                 </div>
                 <div className="flex justify-between">
-                  <span>Data Source:</span>
+                  <span>Source:</span>
                   <span className="font-medium">World of Books</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Product ID:</span>
-                  <span className="font-medium">{product.sourceId}</span>
                 </div>
               </div>
             </div>
           </div>
         </div>
 
-        {/* More from this category (Recommendations) */}
-        {relatedProducts.length > 0 && (
-          <div className="mt-12">
-            <h2 className="text-2xl font-semibold text-gray-900 mb-6">
-              More from this category
+        {/* ── Recommendations ── */}
+        {recommendations.length > 0 && (
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <h2 className="text-xl font-semibold text-gray-800 mb-6">
+              You May Also Like
             </h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-              {relatedProducts.map((item: any) => (
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+              {recommendations.map((rec: any) => (
                 <Link
-                  key={item.id}
-                  href={`/product/${item.id}`}
-                  className="bg-white rounded-lg shadow-sm border border-gray-200 hover:shadow-md transition-all duration-200 overflow-hidden"
+                  key={rec.id}
+                  href={`/product/${rec.id}`}
+                  className="group flex flex-col"
                 >
-                  {item.imageUrl && (
-                    <div className="aspect-square overflow-hidden bg-gray-100">
+                  <div className="aspect-square bg-gray-100 rounded-lg overflow-hidden mb-3">
+                    {rec.imageUrl ? (
                       <img
-                        src={item.imageUrl}
-                        alt={item.title}
-                        className="w-full h-full object-cover hover:scale-105 transition-transform duration-200"
+                        src={rec.imageUrl}
+                        alt={rec.title}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
                       />
-                    </div>
-                  )}
-                  <div className="p-4">
-                    <h3 className="font-semibold text-gray-900 text-sm mb-1 line-clamp-2">
-                      {item.title}
-                    </h3>
-                    {item.author && (
-                      <p className="text-xs text-gray-600 mb-2 line-clamp-1">
-                        {item.author}
-                      </p>
-                    )}
-                    {item.price !== null && (
-                      <p className="text-sm font-bold text-gray-900">
-                        {item.currency || "£"} {item.price.toFixed(2)}
-                      </p>
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-gray-300">
+                        <svg
+                          className="h-10 w-10"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={1}
+                            d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+                          />
+                        </svg>
+                      </div>
                     )}
                   </div>
+                  <h3 className="text-sm font-medium text-gray-900 line-clamp-2 group-hover:text-blue-600 transition-colors">
+                    {rec.title}
+                  </h3>
+                  {rec.author && (
+                    <p className="text-xs text-gray-500 mt-1 line-clamp-1">
+                      {rec.author}
+                    </p>
+                  )}
+                  {rec.price !== null && (
+                    <p className="text-sm font-semibold text-gray-900 mt-1">
+                      {rec.currency || "£"} {rec.price.toFixed(2)}
+                    </p>
+                  )}
                 </Link>
               ))}
             </div>

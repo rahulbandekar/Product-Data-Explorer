@@ -1,18 +1,18 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { apiService } from '@/services/api.service';
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { apiService } from "@/services/api.service";
 
 // Navigation hooks
 export const useNavigation = () => {
   return useQuery({
-    queryKey: ['navigation'],
+    queryKey: ["navigation"],
     queryFn: () => apiService.getNavigation(),
-    staleTime: 5 * 60 * 1000, // 5 minutes
+    staleTime: 5 * 60 * 1000,
   });
 };
 
 export const useCategoriesByNavigation = (navigationId: number) => {
   return useQuery({
-    queryKey: ['categories', 'navigation', navigationId],
+    queryKey: ["categories", "navigation", navigationId],
     queryFn: () => apiService.getCategoriesByNavigation(navigationId),
     enabled: !!navigationId,
     staleTime: 5 * 60 * 1000,
@@ -21,7 +21,7 @@ export const useCategoriesByNavigation = (navigationId: number) => {
 
 export const useCategory = (categoryId: number) => {
   return useQuery({
-    queryKey: ['category', categoryId],
+    queryKey: ["category", categoryId],
     queryFn: () => apiService.getCategory(categoryId),
     enabled: !!categoryId,
   });
@@ -37,15 +37,17 @@ export const useProducts = (params?: {
   minRating?: number;
 }) => {
   return useQuery({
-    queryKey: ['products', params],
+    queryKey: ["products", params],
     queryFn: () => apiService.getProducts(params),
-    staleTime: 2 * 60 * 1000, // 2 minutes
+    // skip query entirely if no params passed
+    enabled: params !== undefined,
+    staleTime: 2 * 60 * 1000,
   });
 };
 
 export const useProduct = (productId: number) => {
   return useQuery({
-    queryKey: ['product', productId],
+    queryKey: ["product", productId],
     queryFn: () => apiService.getProduct(productId),
     enabled: !!productId,
   });
@@ -53,34 +55,33 @@ export const useProduct = (productId: number) => {
 
 export const useScrapeNavigation = () => {
   const queryClient = useQueryClient();
-  
   return useMutation({
     mutationFn: (force: boolean = false) => apiService.scrapeNavigation(force),
     onSuccess: () => {
-      // Invalidate navigation query to refetch fresh data
-      queryClient.invalidateQueries({ queryKey: ['navigation'] });
+      queryClient.invalidateQueries({ queryKey: ["navigation"] });
     },
   });
 };
 
 export const useScrapeCategories = (navigationId: number) => {
   const queryClient = useQueryClient();
-  
   return useMutation({
-    mutationFn: (force: boolean = false) => apiService.scrapeCategories(navigationId, force),
+    mutationFn: (force: boolean = false) =>
+      apiService.scrapeCategories(navigationId, force),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['categories', 'navigation', navigationId] });
+      queryClient.invalidateQueries({
+        queryKey: ["categories", "navigation", navigationId],
+      });
     },
   });
 };
 
 export const useRefreshProduct = (productId: number) => {
   const queryClient = useQueryClient();
-  
   return useMutation({
     mutationFn: () => apiService.refreshProduct(productId),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['product', productId] });
+      queryClient.invalidateQueries({ queryKey: ["product", productId] });
     },
   });
 };

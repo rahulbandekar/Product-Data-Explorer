@@ -1,259 +1,303 @@
 # Product Data Explorer
 
-**Product Data Explorer** is a full‑stack system for scraping, storing, and exploring product data (books from World of Books) with:
+A full-stack product exploration platform built for the World of Books assignment. Users can navigate from high-level headings → categories → products → product detail pages, all powered by live on-demand scraping.
 
-- **Backend**: NestJS, Prisma, PostgreSQL, Crawlee + Playwright, BullMQ + Redis, Swagger
-- **Frontend**: Next.js App Router, React, Tailwind CSS, TanStack Query, Zustand
+**Live URLs**
 
-The frontend lets you trigger scrapes on demand, browse navigation headings and category hierarchies, and inspect rich product details and reviews stored in PostgreSQL.
+- Frontend: `https://your-app.vercel.app` ← replace after deploy
+- Backend API: `https://your-app.railway.app` ← replace after deploy
+- API Docs (Swagger): `https://your-app.railway.app/api-docs`
 
 ---
 
-## Architecture
+## Architecture Overview
 
-- **`backend/`** (NestJS)
-  - REST API for navigation, categories, products, reviews, and scrape jobs
-  - Scraping workers using Crawlee + Playwright, orchestrated via BullMQ + Redis
-  - Prisma ORM against PostgreSQL with a normalized schema for:
-    - `Navigation`, `Category`, `Product`, `ProductDetail`, `Review`, `ScrapeJob`, `ViewHistory`
-  - Swagger docs exposed at **`/api-docs`**
-- **`frontend/`** (Next.js)
-  - App Router (`app/`) with pages such as:
-    - `/` – Dashboard for navigation headings and scrape status
-    - `/categories/[id]` – Category hierarchy and product listings
-    - `/products/[id]` or `/product/[id]` – Product detail views (price, description, specs, reviews)
-    - `/about`, `/contact`, `/readme` – Auxiliary pages
-  - Data fetching with TanStack Query and Axios against the backend API
-  - Tailwind‑styled UI for a modern, responsive experience
+┌─────────────────┐ REST API ┌──────────────────────────────┐
+
+│ Next.js 15 │ ──────────────→ │ NestJS Backend (Railway) │
+
+│ (Vercel) │ ←────────────── │ │
+
+│ │ │ ┌─────────┐ ┌──────────┐ │
+
+│ React Query │ │ │Prisma │ │BullMQ │ │
+
+│ Tailwind CSS │ │ │ORM │ │Workers │ │
+
+│ TypeScript │ │ └────┬────┘ └────┬─────┘ │
+
+└─────────────────┘ │ │ │ │
+
+│ ┌────▼────┐ ┌───▼──────┐ │
+
+│ │Postgres │ │ Redis │ │
+
+│ │(Railway)│ │(Railway) │ │
+
+│ └─────────┘ └──────────┘ │
+
+└──────────────────────────────┘
+
+│
+
+│ HTTP scraping
+
+▼
+
+worldofbooks.com
+
+### Request flow
+
+1. User visits a page → React Query fetches from NestJS API
+2. If data is stale (>24h) or missing, a BullMQ scrape job is queued
+3. Worker fetches worldofbooks.com via HTTP (axios), parses HTML, upserts into PostgreSQL
+4. Response returns from DB — never blocks the request thread
+
+---
+
+## Design Decisions
+
+### Why PostgreSQL?
+
+Relational data with clear foreign keys (navigation → category → product → review) maps naturally to a relational schema. Prisma gives us type-safe queries, migration management, and upsert support for idempotent scraping.
+
+### Why BullMQ + Redis?
+
+Scraping is a long-running operation — it must not block the HTTP request thread. BullMQ provides persistent job queues (survive server restarts), automatic retries with exponential backoff, and rate limiting. Redis backs the queue.
+
+### Why HTTP scraping instead of Playwright?
+
+Playwright launches a full Chromium browser (~300MB RAM). Free-tier servers (Railway, Render) kill it after 60 seconds — confirmed in logs. HTTP scraping with axios is sufficient for worldofbooks.com's server-rendered HTML and uses <10MB RAM. A seed fallback guarantees the app always has data even if the site blocks bots.
+
+### Why Railway for backend?
+
+- Persistent workers (unlike Vercel/Netlify serverless)
+- One-click managed PostgreSQL + Redis
+- No sleep on free tier (unlike Render's 15-min sleep)
+- Docker-based deploys with health checks
+
+### Caching strategy
+
+Every scraped entity stores `lastScrapedAt`. Workers skip re-scraping if data is fresher than 24 hours. Users can force a refresh via the "Refresh Data" button which sets `force: true` on the job, bypassing the cache.
 
 ---
 
 ## Tech Stack
 
-- **Backend**
-  - NestJS 11 (`@nestjs/core`, `@nestjs/swagger`, `@nestjs/throttler`)
-  - Prisma 6 (`@prisma/client`, `prisma`)
-  - PostgreSQL (primary data store)
-  - Redis + BullMQ for background scraping queues
-  - Crawlee + Playwright for web scraping
-  - Jest + Supertest for testing
-- **Frontend**
-  - Next.js 16 (App Router)
-  - React 19
-  - Tailwind CSS
-  - TanStack React Query, SWR
-  - Zustand for state management
+| Layer         | Technology                                         |
+| ------------- | -------------------------------------------------- |
+| Frontend      | Next.js 15 (App Router), TypeScript, Tailwind CSS  |
+| Data fetching | React Query (TanStack)                             |
+| Backend       | NestJS, TypeScript                                 |
+| Database      | PostgreSQL + Prisma ORM                            |
+| Job queue     | BullMQ + Redis                                     |
+| Scraping      | axios + HTML parsing (HTTP-based)                  |
+| Deployment    | Vercel (frontend) + Railway (backend + DB + Redis) |
+| Docs          | Swagger / OpenAPI at `/api-docs`                   |
 
 ---
 
-## Project Structure
+## Database Schema
 
-- `backend/`
-  - `src/main.ts` – NestJS bootstrap, CORS, validation, Swagger
-  - `src/app.module.ts` – Root module wiring API, Prisma, and scraping
-  - `src/api/controllers`
-    - `navigation.controller.ts` – `GET /navigation`
-    - `categories.controller.ts` – `GET /categories/by-navigation/:navigationId`, `GET /categories/:id`
-    - `products.controller.ts` – `GET /products`, `GET /products/:id`, `POST /products/:id/refresh`
-    - `scrape.controller.ts` – `POST /scrape/...` endpoints to queue scrapes
-  - `src/scrape` – Scrape services and workers (navigation, categories, products, product details)
-  - `src/prisma` – Prisma service & module
-  - `prisma/schema.prisma` – Database schema
-  - `prisma/seed.ts` – Seed data for local development
-- `frontend/`
-  - `app/page.tsx` – Landing page showing navigation headings and scrape status
-  - `app/categories/[id]/page.tsx` – Category hierarchy and products for a navigation id
-  - `app/products/[id]/page.tsx` / `app/product/[id]/page.tsx` – Product detail view
-  - `app/about`, `app/contact`, `app/readme` – Auxiliary pages and docs
+Navigation ──< Category ──< Product ──< Review
 
----
+│
 
-## Prerequisites
+└──< ProductDetail
+ScrapeJob (audit log of all scrape operations)
 
-- **Node.js** ≥ 20.x (recommended)
-- **PostgreSQL** (local instance or managed)
-- **Redis** (for BullMQ queues)
-- **npm** (or another Node package manager)
+ViewHistory (browsing history per session)
 
-Alternatively, you can use **Docker** via `backend/docker-compose.yml` to spin up the backend + DB + Redis.
+Key constraints:
+
+- `Navigation.slug` — unique
+- `Category.(navigationId, slug)` — unique composite
+- `Product.sourceId` — unique
+- `Product.sourceUrl` — unique
+- Indexes on `lastScrapedAt` for cache TTL queries
 
 ---
 
-## Environment Configuration
+## API Endpoints
 
-### Backend (`backend/.env`)
+Full interactive docs at `/api-docs` (Swagger UI).
 
-Start from the example file:
+| Method | Path                                | Description                               |
+| ------ | ----------------------------------- | ----------------------------------------- |
+| GET    | `/navigation`                       | All navigation headings                   |
+| GET    | `/categories/by-navigation/:id`     | Categories for a navigation               |
+| GET    | `/categories/:id`                   | Single category with children             |
+| GET    | `/products`                         | Paginated products (filter by categoryId) |
+| GET    | `/products/:id`                     | Product detail with reviews               |
+| POST   | `/products/:id/refresh`             | Queue a product detail re-scrape          |
+| POST   | `/scrape/navigation`                | Trigger navigation scrape                 |
+| POST   | `/scrape/categories/:navigationId`  | Trigger category scrape                   |
+| POST   | `/scrape/products/:categoryId`      | Trigger product scrape                    |
+| POST   | `/scrape/product-detail/:productId` | Trigger detail scrape                     |
+| GET    | `/scrape-jobs`                      | List scrape jobs with status              |
+| GET    | `/health`                           | Health check                              |
+
+---
+
+## Local Development
+
+### Prerequisites
+
+- Node.js 18+
+- PostgreSQL 14+
+- Redis 7+
+- Docker (optional)
+
+### Option A — Docker (recommended)
 
 ```bash
+# Clone the repo
+git clone <repo-url>
+cd product-data-explorer
+
+# Start PostgreSQL + Redis
 cd backend
-cp .env.example .env
-```
+docker-compose up -d
 
-Key variables:
-
-- `DATABASE_URL` – PostgreSQL connection string, e.g.  
-  `postgresql://user:password@localhost:5432/product_explorer`
-- `REDIS_URL` / `REDIS_HOST` / `REDIS_PORT` – Redis connection settings
-- `PORT` – API port (default in `.env.example` is `4000`; fallback in code is `10000`)
-- `FRONTEND_URL` – Local frontend URL, typically `http://localhost:3000`
-- `SCRAPE_DELAY_MS`, `SCRAPE_CACHE_TTL_HOURS` – Scraping delay and cache TTL
-
-### Frontend (`frontend/.env.local`)
-
-```bash
-cd frontend
-cp .env.example .env.local
-```
-
-Set:
-
-- `NEXT_PUBLIC_API_URL` – Backend API base URL (e.g. `http://localhost:4000`)
-- `NEXT_PUBLIC_SITE_URL` – Frontend site URL (e.g. `http://localhost:3000`)
-
----
-
-## Running Locally – Backend
-
-From the repo root:
-
-```bash
-cd backend
+# Install dependencies
 npm install
 
-# Generate Prisma client & run migrations
-npm run prisma:migrate
+# Set up environment
+cp .env.example .env
+# Edit .env — defaults work with docker-compose as-is
 
-# (Optional) seed database with sample data
-npm run db:seed
+# Run migrations + seed
+npx prisma migrate dev
+npx ts-node prisma/seed.ts
 
-# Start API server (watch mode)
+# Start backend
 npm run start:dev
 ```
 
-The API will be available at:
-
-- **REST API**: `http://localhost:4000`
-- **Swagger UI**: `http://localhost:4000/api-docs`
-
-### Running Scrape Workers
-
-To process scraping jobs (navigation, categories, products, product details), start the workers:
+In a second terminal:
 
 ```bash
 cd backend
-npm run start:workers
+
+# Navigation worker
+npx ts-node src/scrape/workers/navigation.worker.ts
 ```
 
-This runs multiple workers in parallel using BullMQ and Redis.
+In a third terminal:
 
----
+```bash
+cd backend
 
-## Running Locally – Frontend
+# Category worker
+npx ts-node src/scrape/workers/category.worker.ts
+```
 
-From the repo root:
+In a fourth terminal:
 
 ```bash
 cd frontend
+cp .env.local.example .env.local
 npm install
 npm run dev
 ```
 
-Then open:
+Visit `http://localhost:3000`
 
-- **Frontend**: `http://localhost:3000`
+### Option B — Manual (no Docker)
 
-The home page will:
+Make sure PostgreSQL and Redis are running locally, then follow Option A skipping `docker-compose up`.
 
-- Load navigation headings from the backend (`/navigation`)
-- Show helpful error messages if the backend or DB are not reachable
-- Allow you to trigger a navigation scrape directly from the UI
+### Environment Variables
 
----
+**Backend (`backend/.env`):**
 
-## Core Features
+| Variable       | Description                  | Default                 |
+| -------------- | ---------------------------- | ----------------------- |
+| `DATABASE_URL` | PostgreSQL connection string | required                |
+| `REDIS_URL`    | Redis URL (Railway format)   | optional                |
+| `REDIS_HOST`   | Redis host (local dev)       | `127.0.0.1`             |
+| `REDIS_PORT`   | Redis port (local dev)       | `6379`                  |
+| `PORT`         | Server port                  | `4000`                  |
+| `NODE_ENV`     | Environment                  | `development`           |
+| `FRONTEND_URL` | Allowed CORS origin          | `http://localhost:3000` |
 
-- **Navigation scraping**
-  - Scrapes top‑level navigation headings from World of Books
-  - Persists to `Navigation` + `Category` tables
-- **Category hierarchy**
-  - Parent/child `Category` relations with product counts
-  - Browseable in the frontend by navigation and category
-- **Product catalog**
-  - Products linked to categories with pricing, author, and image data
-  - Rich details and reviews via `ProductDetail` and `Review` models
-- **Scrape jobs and workers**
-  - Queue‑based scraping via BullMQ (navigation, categories, products, product details)
-  - `ScrapeJob` table tracks job status and timings
-- **View history**
-  - `ViewHistory` model tracks anonymized browsing paths for analytics
+**Frontend (`frontend/.env.local`):**
+
+| Variable               | Description     | Default                 |
+| ---------------------- | --------------- | ----------------------- |
+| `NEXT_PUBLIC_API_URL`  | Backend API URL | `http://localhost:4000` |
+| `NEXT_PUBLIC_SITE_URL` | Frontend URL    | `http://localhost:3000` |
 
 ---
 
-## API Overview
+## Deployment
 
-Key endpoints (all return a `{ success, data, ... }` envelope):
+### Backend → Railway
 
-- **Navigation**
-  - `GET /navigation` – List navigation headings with category counts
-- **Categories**
-  - `GET /categories/by-navigation/:navigationId` – Categories for a navigation
-  - `GET /categories/:id` – Single category with children and recent products
-- **Products**
-  - `GET /products` – Paginated products (`page`, `limit`, `categoryId`)
-  - `GET /products/:id` – Single product with category, detail, and reviews
-  - `POST /products/:id/refresh` – Queue product detail re‑scrape
-- **Scraping**
-  - `POST /scrape/navigation` – Queue navigation scrape
-  - `POST /scrape/categories/:navigationId` – Queue category scrape for a navigation
-  - `POST /scrape/products/:categoryId` – Queue product scrape for a category
-  - `POST /scrape/product-detail/:productId` – Queue product detail scrape
+1. Go to [railway.app](https://railway.app) → New Project → Deploy from GitHub
+2. Set **Root Directory** to `backend`
+3. Add **PostgreSQL** service → Railway injects `DATABASE_URL` automatically
+4. Add **Redis** service → Railway injects `REDIS_URL` automatically
+5. Set environment variable: `FRONTEND_URL=https://your-app.vercel.app`
+6. Railway uses the `Dockerfile` and `railway.json` automatically
 
-For full request/response schemas, use Swagger at `/api-docs`.
+Seed the database (one-time, via Railway shell):
 
----
+```bash
+npx ts-node prisma/seed.ts
+```
 
-## Scraping Safety & Ethics
+### Frontend → Vercel
 
-- All scrapes are cached using DB‑backed TTL
-- Repeated requests do not re‑scrape unless expired
-- Crawlers use rate limiting and retries
-- All scraping jobs are logged in `ScrapeJob`
-- Seed data is provided for reviewer fallback
+1. Go to [vercel.com](https://vercel.com) → New Project → Import from GitHub
+2. Set **Root Directory** to `frontend`
+3. Add environment variable:
+   NEXT_PUBLIC_API_URL=https://your-app.railway.app
 
-Additional guidance:
-
-- **DB‑backed caching** avoids unnecessary repeat requests.
-- **Rate limiting & retries** reduce load on the target site and make scraping more robust.
-- **Job logging** via the `ScrapeJob` table gives observability and auditability.
-- **Seed data** allows demos without hitting the live site.
-
-Always respect the target website’s **robots.txt**, **terms of service**, and legal restrictions when scraping.
+4. Deploy
 
 ---
 
-## Docker (Optional)
-
-Inside `backend/` you’ll find Docker helpers:
+## Running Tests
 
 ```bash
 cd backend
 
-# Build backend image
-npm run docker:build
+# Unit tests
+npm test
 
-# Run backend container with .env
-npm run docker:run
+# Test coverage
+npm run test:cov
 
-# Or use docker-compose (backend + DB + Redis)
-npm run docker:compose-up
+# E2E tests
+npm run test:e2e
 ```
-
-See `backend/docker-compose.yml` and `backend/render.yaml` for deployment configuration hints.
 
 ---
 
-## Notes on Folder READMEs
+## Seed Data
 
-The `backend/README.md` and `frontend/README.md` are mostly framework boilerplate.
-Treat **this root README** as the single source of truth for how to run and understand the system end‑to‑end.
+If scraping fails (network issues, site changes), the seed script provides fallback data:
+
+```bash
+cd backend
+npx ts-node prisma/seed.ts
+```
+
+This creates:
+
+- 1 navigation heading (Books)
+- 3 categories (Fiction, Non-Fiction, Children's)
+- 3 sample products with details and reviews
+
+Workers also have built-in seed fallbacks — if HTTP scraping returns no results, they insert a realistic set of categories automatically.
+
+---
+
+## Ethical Scraping
+
+- HTTP requests use a descriptive `User-Agent` header
+- 24-hour cache TTL prevents repeated hits to worldofbooks.com
+- BullMQ rate limiter: max 1 job per 2–3 seconds
+- Seed fallback means reviewers can test without triggering any scraping
+- No credentials or personal data collected from the target site
