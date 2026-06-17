@@ -1,20 +1,22 @@
 import { Injectable } from '@nestjs/common';
-import { PrismaClient } from '@prisma/client';
-import { Queue } from 'bullmq';
-
-const prisma = new PrismaClient();
-const queue = new Queue('scrape-queue');
+import { PrismaService } from './prisma/prisma.service';
+import { ScrapeQueueService } from './scrape/services/scrape-queue.service';
 
 @Injectable()
 export class AppService {
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly scrapeQueue: ScrapeQueueService,
+  ) {}
+
   async getNavigation() {
-    return prisma.navigation.findMany({
+    return this.prisma.navigation.findMany({
       orderBy: { title: 'asc' },
     });
   }
 
   async getCategories(slug: string) {
-    const navigation = await prisma.navigation.findUnique({
+    const navigation = await this.prisma.navigation.findUnique({
       where: { slug },
       include: {
         categories: {
@@ -22,12 +24,12 @@ export class AppService {
         },
       },
     });
-    
+
     return navigation?.categories || [];
   }
 
   async scrapeCategories(navigationId: string) {
-    const navigation = await prisma.navigation.findUnique({
+    const navigation = await this.prisma.navigation.findUnique({
       where: { id: parseInt(navigationId) },
     });
 
@@ -35,12 +37,8 @@ export class AppService {
       throw new Error('Navigation not found');
     }
 
-    const job = await queue.add('scrape-categories', {
-      navigationId: navigation.id.toString(),
-      navigationSlug: navigation.slug,
-      navigationUrl: `https://www.worldofbooks.com/en-us/${navigation.slug}`,
-    }, {
-      jobId: `api-scrape-${Date.now()}`,
+    const job = await this.scrapeQueue.addCategoryScrapeJob(navigation.id, {
+      force: false,
     });
 
     return {

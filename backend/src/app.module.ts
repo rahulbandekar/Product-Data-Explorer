@@ -8,17 +8,14 @@ import { ScrapeModule } from './scrape/scrape.module';
 import { ApiModule } from './api/api.module';
 import { LoggingMiddleware } from './middleware/logging.middleware';
 import { HealthController } from './health/health.controller';
+import { AppController } from './app.controller';
+import { AppService } from './app.service';
 
-// Parses all Redis URL formats:
-//   Railway:  redis://default:password@host:port
-//   Render:   redis://host:port
-//   Local:    REDIS_HOST + REDIS_PORT env vars
 function getRedisConnection() {
   const redisUrl = process.env.REDIS_URL;
 
   if (redisUrl) {
     try {
-      // Normalise — some providers omit the scheme
       const normalised = redisUrl.startsWith('redis')
         ? redisUrl
         : `redis://${redisUrl}`;
@@ -28,24 +25,19 @@ function getRedisConnection() {
       return {
         host: url.hostname,
         port: parseInt(url.port || '6379'),
-        // Only set password if present
         ...(url.password ? { password: decodeURIComponent(url.password) } : {}),
-        // Only set username if it's not the Railway default "default"
         ...(url.username && url.username !== 'default'
           ? { username: url.username }
           : {}),
-        // TLS for rediss:// connections (Render, Upstash)
         ...(normalised.startsWith('rediss://') ? { tls: {} } : {}),
       };
     } catch (e) {
       console.warn('Could not parse REDIS_URL, falling back to host/port:', e);
-      // Last-resort fallback: treat REDIS_URL as plain host:port
       const [host, port] = redisUrl.split(':');
       return { host, port: parseInt(port || '6379') };
     }
   }
 
-  // Local dev — use individual env vars
   return {
     host: process.env.REDIS_HOST || '127.0.0.1',
     port: parseInt(process.env.REDIS_PORT || '6379'),
@@ -74,8 +66,9 @@ function getRedisConnection() {
     ScrapeModule,
     ApiModule,
   ],
-  controllers: [HealthController],
+  controllers: [HealthController, AppController],
   providers: [
+    AppService,
     {
       provide: APP_GUARD,
       useClass: ThrottlerGuard,
