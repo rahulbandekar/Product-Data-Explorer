@@ -79,14 +79,69 @@ Every scraped entity stores `lastScrapedAt`. Workers skip re-scraping if data is
 
 ## Database Schema
 
-Navigation ──< Category ──< Product ──< Review
+## Database Schema
 
-│
+```mermaid
+erDiagram
+    Navigation ||--o{ Category : "has"
+    Category ||--o{ Category : "parent/children"
+    Category ||--o{ Product : "has"
+    Product ||--o| ProductDetail : "has"
+    Product ||--o{ Review : "has"
 
-└──< ProductDetail
-ScrapeJob (audit log of all scrape operations)
-
-ViewHistory (browsing history per session)
+    Navigation {
+        int id PK
+        string title
+        string slug UK
+        datetime lastScrapedAt
+    }
+    Category {
+        int id PK
+        int navigationId FK
+        int parentId FK
+        string title
+        string slug
+        datetime lastScrapedAt
+    }
+    Product {
+        int id PK
+        string sourceId UK
+        string sourceUrl UK
+        string title
+        string author
+        float price
+        int categoryId FK
+        datetime lastScrapedAt
+    }
+    ProductDetail {
+        int productId PK FK
+        string description
+        json specs
+        float ratingsAvg
+        int reviewsCount
+    }
+    Review {
+        int id PK
+        int productId FK
+        string author
+        float rating
+        string text
+    }
+    ScrapeJob {
+        int id PK
+        string targetUrl
+        string targetType
+        string status
+        datetime startedAt
+        datetime finishedAt
+    }
+    ViewHistory {
+        int id PK
+        string sessionId
+        json pathJson
+        datetime createdAt
+    }
+```
 
 Key constraints:
 
@@ -232,9 +287,11 @@ npx ts-node prisma/seed.ts
 1. Go to [vercel.com](https://vercel.com) → New Project → Import from GitHub
 2. Set **Root Directory** to `frontend`
 3. Add environment variable:
+   ```
    NEXT_PUBLIC_API_URL=https://your-app.railway.app
+   ```
 
-4. Deploy
+5. Deploy
 
 ---
 
