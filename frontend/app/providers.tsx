@@ -1,9 +1,9 @@
-'use client';
+"use client";
 
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
-import { useState, useEffect } from 'react';
-import { useBrowsingHistory } from '@/hooks/use-browsing-history';
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
+import { useState, useEffect, Suspense } from "react";
+import { useBrowsingHistory } from "@/hooks/use-browsing-history";
 
 function HistoryTracker() {
   useBrowsingHistory();
@@ -26,7 +26,9 @@ export default function Providers({ children }: { children: React.ReactNode }) {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <HistoryTracker />
+      <Suspense fallback={null}>
+        <HistoryTracker />
+      </Suspense>
       {children}
       <ReactQueryDevtools initialIsOpen={false} />
     </QueryClientProvider>
