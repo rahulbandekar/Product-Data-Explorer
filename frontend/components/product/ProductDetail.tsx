@@ -1,10 +1,10 @@
-'use client';
+"use client";
 
-import Image from 'next/image';
-import { Star, ShoppingBag, Share2, Heart, ChevronRight } from 'lucide-react';
-import { Product } from '@/lib/types';
-import { formatPrice } from '@/lib/utils';
-import { useState } from 'react';
+import Image from "next/image";
+import { Star, ShoppingBag, Share2, Heart, ChevronRight } from "lucide-react";
+import { Product } from "@/lib/types";
+import { formatPrice } from "@/lib/utils";
+import { useState } from "react";
 
 interface ProductDetailProps {
   product: Product & { detail?: any };
@@ -30,9 +30,9 @@ export default function ProductDetail({ product }: ProductDetailProps) {
         {/* Product Image */}
         <div className="bg-white rounded-xl shadow-sm p-8">
           <div className="relative h-[400px] w-full overflow-hidden rounded-lg bg-gray-100">
-            {product.image_url ? (
+            {product.imageUrl ? (
               <Image
-                src={product.image_url}
+                src={product.imageUrl}
                 alt={product.title}
                 fill
                 className="object-contain"
@@ -40,8 +40,18 @@ export default function ProductDetail({ product }: ProductDetailProps) {
               />
             ) : (
               <div className="absolute inset-0 flex items-center justify-center text-gray-400">
-                <svg className="h-24 w-24" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                <svg
+                  className="h-24 w-24"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={1}
+                    d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+                  />
                 </svg>
               </div>
             )}
@@ -50,9 +60,11 @@ export default function ProductDetail({ product }: ProductDetailProps) {
 
         {/* Product Info */}
         <div className="bg-white rounded-xl shadow-sm p-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-4">{product.title}</h1>
+          <h1 className="text-3xl font-bold text-gray-900 mb-4">
+            {product.title}
+          </h1>
           <p className="text-lg text-gray-600 mb-4">{product.author}</p>
-          
+
           <div className="flex items-center space-x-2 mb-6">
             <div className="flex items-center">
               {[1, 2, 3, 4, 5].map((star) => (
@@ -67,9 +79,13 @@ export default function ProductDetail({ product }: ProductDetailProps) {
 
           <div className="mb-8">
             <div className="text-4xl font-bold text-gray-900 mb-2">
-              {formatPrice(product.price, product.currency)}
+              {product.price !== null && product.currency
+                ? formatPrice(product.price, product.currency)
+                : "Price unavailable"}
             </div>
-            <p className="text-green-600 font-medium">In stock • Free shipping</p>
+            <p className="text-green-600 font-medium">
+              In stock • Free shipping
+            </p>
           </div>
 
           {/* Quantity Selector */}
@@ -85,7 +101,9 @@ export default function ProductDetail({ product }: ProductDetailProps) {
                 >
                   -
                 </button>
-                <span className="px-4 py-2 border-x border-gray-300">{quantity}</span>
+                <span className="px-4 py-2 border-x border-gray-300">
+                  {quantity}
+                </span>
                 <button
                   onClick={() => setQuantity(quantity + 1)}
                   className="px-4 py-2 text-gray-600 hover:bg-gray-100"
@@ -115,10 +133,12 @@ export default function ProductDetail({ product }: ProductDetailProps) {
             <button
               onClick={() => setIsLiked(!isLiked)}
               className={`p-2 rounded-full ${
-                isLiked ? 'bg-red-50 text-red-600' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                isLiked
+                  ? "bg-red-50 text-red-600"
+                  : "bg-gray-100 text-gray-600 hover:bg-gray-200"
               }`}
             >
-              <Heart className={`h-5 w-5 ${isLiked ? 'fill-current' : ''}`} />
+              <Heart className={`h-5 w-5 ${isLiked ? "fill-current" : ""}`} />
             </button>
             <button className="p-2 bg-gray-100 text-gray-600 rounded-full hover:bg-gray-200">
               <Share2 className="h-5 w-5" />
@@ -129,19 +149,25 @@ export default function ProductDetail({ product }: ProductDetailProps) {
 
       {/* Product Description */}
       <div className="bg-white rounded-xl shadow-sm p-8 mb-8">
-        <h2 className="text-2xl font-bold text-gray-900 mb-6">Product Description</h2>
+        <h2 className="text-2xl font-bold text-gray-900 mb-6">
+          Product Description
+        </h2>
         <div className="prose max-w-none">
           {product.detail?.description ? (
-            <p className="text-gray-600 leading-relaxed">{product.detail.description}</p>
+            <p className="text-gray-600 leading-relaxed">
+              {product.detail.description}
+            </p>
           ) : (
             <div className="space-y-4">
               <p className="text-gray-600">
-                This product is sourced from World of Books, one of the largest online book retailers.
-                The description and details are fetched in real-time through our scraping system.
+                This product is sourced from World of Books, one of the largest
+                online book retailers. The description and details are fetched
+                in real-time through our scraping system.
               </p>
               <p className="text-gray-600">
-                For more detailed information about this product, please visit the original listing
-                on World of Books by clicking the source link below.
+                For more detailed information about this product, please visit
+                the original listing on World of Books by clicking the source
+                link below.
               </p>
             </div>
           )}
@@ -150,7 +176,9 @@ export default function ProductDetail({ product }: ProductDetailProps) {
 
       {/* Specifications */}
       <div className="bg-white rounded-xl shadow-sm p-8">
-        <h2 className="text-2xl font-bold text-gray-900 mb-6">Specifications</h2>
+        <h2 className="text-2xl font-bold text-gray-900 mb-6">
+          Specifications
+        </h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="space-y-4">
             <div>
@@ -162,14 +190,18 @@ export default function ProductDetail({ product }: ProductDetailProps) {
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-600">Last Updated</span>
-                  <span className="font-medium">{new Date(product.last_scraped_at).toLocaleDateString()}</span>
+                  <span className="font-medium">
+                    {product.lastScrapedAt
+                      ? new Date(product.lastScrapedAt).toLocaleDateString()
+                      : "Never"}
+                  </span>
                 </div>
               </div>
             </div>
           </div>
           <div>
             <a
-              href={product.source_url}
+              href={product.sourceUrl}
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center text-blue-600 hover:text-blue-700 font-medium"
