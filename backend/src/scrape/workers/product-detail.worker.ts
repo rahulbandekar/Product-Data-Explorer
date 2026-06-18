@@ -1,10 +1,38 @@
-// src/scrape/workers/product-detail.worker.ts
 import 'dotenv/config';
 import { Worker } from 'bullmq';
-import { PlaywrightCrawler } from 'crawlee';
 import { PrismaClient } from '@prisma/client';
+import axios from 'axios';
 
 const prisma = new PrismaClient();
+
+process.on('uncaughtException', (err) => console.error('Uncaught:', err));
+process.on('unhandledRejection', (err) => console.error('Unhandled:', err));
+
+console.log('Product detail worker starting (HTTP mode)...');
+
+async function scrapeProductDetailHttp(url: string) {
+  const res = await axios.get(url, {
+    timeout: 15000,
+    headers: {
+      'User-Agent': 'Mozilla/5.0 (compatible; ProductExplorerBot/1.0)',
+      Accept: 'text/html,application/xhtml+xml',
+    },
+  });
+
+  const html: string = res.data;
+
+  // Best-effort extraction — description is usually in a meta tag or first <p>
+  const metaDescMatch = html.match(
+    /<meta[^>]+name=["']description["'][^>]+content=["']([^"']+)["']/i,
+  );
+  const description = metaDescMatch ? metaDescMatch[1].trim() : null;
+
+  return {
+    description,
+    specs: {},
+    reviews: [] as Array<{ author: string; rating: number; text: string }>,
+  };
+}
 
 const worker = new Worker(
   'scrape-queue',
@@ -12,8 +40,7 @@ const worker = new Worker(
     if (job.name !== 'scrape-product-detail') return;
 
     const { productId, productUrl, force = false } = job.data;
-    
-    console.log(`📖 Starting product detail scrape for product ${productId}: ${productUrl}`);
+    console.log(`Product detail scrape for ${productId}: ${productUrl}`);
 
     const scrapeJob = await prisma.scrapeJob.create({
       data: {
@@ -25,7 +52,6 @@ const worker = new Worker(
     });
 
     try {
-      // Check if we already have fresh details
       if (!force) {
         const product = await prisma.product.findUnique({
           where: { id: parseInt(productId) },
@@ -33,9 +59,9 @@ const worker = new Worker(
         });
 
         if (product?.detail?.updatedAt) {
-          const timeSince = Date.now() - product.detail.updatedAt.getTime();
-          if (timeSince < 24 * 60 * 60 * 1000) {
-            console.log('✅ Product details are fresh, skipping scrape');
+          const age = Date.now() - product.detail.updatedAt.getTime();
+          if (age < 24 * 60 * 60 * 1000) {
+            console.log('Detail fresh, skipping');
             await prisma.scrapeJob.update({
               where: { id: scrapeJob.id },
               data: { status: 'SKIPPED', finishedAt: new Date() },
@@ -45,99 +71,31 @@ const worker = new Worker(
         }
       }
 
-      const crawler = new PlaywrightCrawler({
-        maxRequestsPerCrawl: 1,
-        maxRequestsPerMinute: 5,
-        
-        async requestHandler({ page, request }) {
-          console.log(`📄 Scraping product details from: ${request.url}`);
-          await page.goto(request.url, { waitUntil: 'networkidle' });
+      console.log(`Fetching ${productUrl}...`);
+      const result = await scrapeProductDetailHttp(productUrl);
 
-          // Extract product details
-          const description = await page.$eval(
-            '.description, .product-description, [data-description]',
-            el => el.textContent?.trim()
-          ).catch(() => null);
-
-          // Extract reviews if available
-          const reviews = await page.$$eval(
-            '.review, .customer-review, [data-review]',
-            (reviewElements) =>
-              reviewElements.map(review => {
-                const author = review.querySelector('.author, .reviewer')?.textContent?.trim();
-                const rating = review.querySelector('.rating, .stars')?.textContent?.trim();
-                const text = review.querySelector('.text, .review-text')?.textContent?.trim();
-                const date = review.querySelector('.date, .review-date')?.textContent?.trim();
-
-                return {
-                  author: author || 'Anonymous',
-                  rating: rating ? parseFloat(rating.match(/[\d.]+/)?.[0] || '0') : 0,
-                  text: text || '',
-                  date: date || new Date().toISOString().split('T')[0],
-                };
-              })
-          ).catch(() => []);
-
-          // Extract additional metadata
-          const metadata = {
-            publisher: await page.$eval('[data-publisher], .publisher', el => el.textContent?.trim()).catch(() => null),
-            publicationDate: await page.$eval('[data-publication-date], .pub-date', el => el.textContent?.trim()).catch(() => null),
-            isbn: await page.$eval('[data-isbn], .isbn', el => el.textContent?.trim()).catch(() => null),
-            format: await page.$eval('[data-format], .format', el => el.textContent?.trim()).catch(() => null),
-          };
-
-          // Calculate average rating
-          const ratings = reviews.map(r => r.rating).filter(r => r > 0);
-          const ratingsAvg = ratings.length > 0 
-            ? ratings.reduce((sum, rating) => sum + rating, 0) / ratings.length 
-            : null;
-
-          // Save product detail
-          await prisma.productDetail.upsert({
-            where: { productId: parseInt(productId) },
-            update: {
-              description: description || '',
-              specs: metadata,
-              ratingsAvg,
-              reviewsCount: reviews.length,
-            },
-            create: {
-              productId: parseInt(productId),
-              description: description || '',
-              specs: metadata,
-              ratingsAvg,
-              reviewsCount: reviews.length,
-            },
-          });
-
-          // Save reviews
-          for (const review of reviews) {
-            await prisma.review.create({
-              data: {
-                author: review.author,
-                rating: review.rating,
-                text: review.text,
-                productId: parseInt(productId),
-                createdAt: new Date(review.date),
-              },
-            });
-          }
-
-          console.log(`✅ Saved details for product ${productId}: ${reviews.length} reviews`);
+      await prisma.productDetail.upsert({
+        where: { productId: parseInt(productId) },
+        update: {
+          description: result.description || '',
+          specs: result.specs,
+        },
+        create: {
+          productId: parseInt(productId),
+          description: result.description || '',
+          specs: result.specs,
+          ratingsAvg: null,
+          reviewsCount: 0,
         },
       });
 
-      await crawler.run([{ url: productUrl }]);
-      
       await prisma.scrapeJob.update({
         where: { id: scrapeJob.id },
         data: { status: 'SUCCESS', finishedAt: new Date() },
       });
-      
-      console.log(`✅ Product detail scraping completed for product ${productId}`);
-      
+      console.log(`Product detail scraping done for ${productId}`);
     } catch (error) {
-      console.error('💀 Product detail scraping failed:', error);
+      console.error('Product detail scraping failed:', error);
       await prisma.scrapeJob.update({
         where: { id: scrapeJob.id },
         data: {
@@ -155,7 +113,10 @@ const worker = new Worker(
       port: parseInt(process.env.REDIS_PORT || '6379'),
     },
     limiter: { max: 1, duration: 3000 },
-  }
+  },
 );
 
-console.log('📖 Product detail worker started');
+worker.on('completed', (job) => console.log(`Job ${job.id} completed`));
+worker.on('failed', (job, err) => console.error(`Job ${job?.id} failed:`, err));
+worker.on('error', (err) => console.error('Worker error:', err));
+console.log('Product detail worker listening...');

@@ -1,19 +1,87 @@
-// src/scrape/workers/product.worker.ts - Fixed version
 import 'dotenv/config';
 import { Worker } from 'bullmq';
-import { PlaywrightCrawler } from 'crawlee';
 import { PrismaClient } from '@prisma/client';
+import axios from 'axios';
 
 const prisma = new PrismaClient();
+
+process.on('uncaughtException', (err) => console.error('Uncaught:', err));
+process.on('unhandledRejection', (err) => console.error('Unhandled:', err));
+
+console.log('Product worker starting (HTTP mode)...');
+
+interface ScrapedProduct {
+  title: string;
+  author: string | null;
+  price: number;
+  imageUrl: string;
+  sourceUrl: string;
+  sourceId: string;
+}
+
+async function scrapeProductsHttp(
+  categoryUrl: string,
+): Promise<ScrapedProduct[]> {
+  const res = await axios.get(categoryUrl, {
+    timeout: 15000,
+    headers: {
+      'User-Agent': 'Mozilla/5.0 (compatible; ProductExplorerBot/1.0)',
+      Accept: 'text/html,application/xhtml+xml',
+    },
+  });
+
+  const html: string = res.data;
+  const products: ScrapedProduct[] = [];
+
+  // Match product links with surrounding context (title, price, image)
+  // worldofbooks.com product URLs typically look like /products/<slug>-<id>
+  const productLinkRegex =
+    /<a[^>]+href=["']([^"']*\/products\/[^"']+)["'][^>]*>/gi;
+  const seen = new Set<string>();
+  let match: RegExpExecArray | null;
+
+  while ((match = productLinkRegex.exec(html)) !== null) {
+    const href = match[1];
+    const fullUrl = href.startsWith('http')
+      ? href
+      : `https://www.worldofbooks.com${href.startsWith('/') ? href : '/' + href}`;
+
+    if (seen.has(fullUrl)) continue;
+    seen.add(fullUrl);
+
+    const idMatch = fullUrl.match(/[?/]([a-zA-Z0-9-]+)\/?$/);
+    const sourceId = idMatch ? idMatch[1] : fullUrl;
+
+    // Try to find a title near this link in the HTML
+    const context = html.slice(match.index, match.index + 500);
+    const titleMatch = context.match(/>([^<]{3,100})<\/a>/);
+    const title = titleMatch ? titleMatch[1].trim() : 'Untitled Product';
+
+    products.push({
+      title,
+      author: null,
+      price: 0,
+      imageUrl: '',
+      sourceUrl: fullUrl,
+      sourceId,
+    });
+
+    if (products.length >= 30) break;
+  }
+
+  return products;
+}
 
 const worker = new Worker(
   'scrape-queue',
   async (job) => {
-    if (job.name !== 'scrape-products') return;
+    if (job.name !== 'scrape-products') {
+      console.log(`Skipping: ${job.name}`);
+      return;
+    }
 
     const { categoryId, categoryUrl, force = false } = job.data;
-    
-    console.log(`📦 Starting product scrape for category ${categoryId}: ${categoryUrl}`);
+    console.log(`Product scrape for category ${categoryId}: ${categoryUrl}`);
 
     const scrapeJob = await prisma.scrapeJob.create({
       data: {
@@ -25,17 +93,16 @@ const worker = new Worker(
     });
 
     try {
-      // Cache check (24 hours)
       if (!force) {
-        const latestProduct = await prisma.product.findFirst({
+        const latest = await prisma.product.findFirst({
           where: { categoryId: parseInt(categoryId) },
           orderBy: { lastScrapedAt: 'desc' },
         });
 
-        if (latestProduct?.lastScrapedAt) {
-          const timeSince = Date.now() - latestProduct.lastScrapedAt.getTime();
-          if (timeSince < 24 * 60 * 60 * 1000) {
-            console.log('✅ Products are fresh, skipping scrape');
+        if (latest?.lastScrapedAt) {
+          const age = Date.now() - latest.lastScrapedAt.getTime();
+          if (age < 24 * 60 * 60 * 1000) {
+            console.log('Products fresh, skipping');
             await prisma.scrapeJob.update({
               where: { id: scrapeJob.id },
               data: { status: 'SKIPPED', finishedAt: new Date() },
@@ -45,87 +112,46 @@ const worker = new Worker(
         }
       }
 
-      const crawler = new PlaywrightCrawler({
-        maxRequestsPerCrawl: 50,
-        maxRequestsPerMinute: 10,
-        
-        async requestHandler({ page, request }) {
-          console.log(`🛒 Scraping products from: ${request.url}`);
-          await page.goto(request.url, { waitUntil: 'networkidle' });
+      console.log(`Fetching ${categoryUrl}...`);
+      const scraped = await scrapeProductsHttp(categoryUrl);
+      console.log(`Found ${scraped.length} products via HTTP`);
 
-          // Extract products with null checks
-          const products = await page.$$eval('.product-item, .product-card, [data-product]', (items) => 
-            items.map(item => {
-              const title = item.querySelector('.title, h3, [data-title]')?.textContent?.trim();
-              const author = item.querySelector('.author, .brand, [data-author]')?.textContent?.trim();
-              const priceText = item.querySelector('.price, [data-price]')?.textContent?.trim();
-              const image = item.querySelector('img')?.src;
-              const link = item.querySelector('a')?.href;
-              
-              if (!title || !priceText || !link) return null;
-              
-              // Parse price
-              const priceMatch = priceText.match(/[\d.,]+/);
-              const price = priceMatch ? parseFloat(priceMatch[0].replace(',', '.')) : 0;
-              
-              // Extract source ID from URL
-              const sourceIdMatch = link.match(/\/(\d+)\/?$/);
-              const sourceId = sourceIdMatch ? sourceIdMatch[1] : null;
-              
-              return {
-                title,
-                author: author || null,
-                price,
-                imageUrl: image || '',
-                sourceUrl: link,
-                sourceId,
-              };
-            }).filter((item): item is NonNullable<typeof item> => item !== null)
-          );
+      let count = 0;
+      for (const p of scraped) {
+        if (!p.sourceId) continue;
+        try {
+          await prisma.product.upsert({
+            where: { sourceId: p.sourceId },
+            update: {
+              title: p.title,
+              categoryId: parseInt(categoryId),
+              lastScrapedAt: new Date(),
+            },
+            create: {
+              title: p.title,
+              author: p.author,
+              price: p.price || null,
+              currency: 'GBP',
+              imageUrl: p.imageUrl || null,
+              sourceUrl: p.sourceUrl,
+              sourceId: p.sourceId,
+              categoryId: parseInt(categoryId),
+              lastScrapedAt: new Date(),
+            },
+          });
+          count++;
+        } catch (e) {
+          console.error(`Error saving product "${p.title}":`, e);
+        }
+      }
 
-          console.log(`📊 Found ${products.length} products`);
-
-          // Save to database
-          for (const product of products) {
-            if (!product.sourceId) continue;
-            
-            await prisma.product.upsert({
-              where: { sourceId: product.sourceId },
-              update: {
-                title: product.title,
-                price: product.price,
-                currency: 'GBP',
-                imageUrl: product.imageUrl,
-                categoryId: parseInt(categoryId),
-                lastScrapedAt: new Date(),
-              },
-              create: {
-                title: product.title,
-                author: product.author,
-                price: product.price,
-                currency: 'GBP',
-                imageUrl: product.imageUrl,
-                sourceUrl: product.sourceUrl,
-                sourceId: product.sourceId,
-                categoryId: parseInt(categoryId),
-                lastScrapedAt: new Date(),
-              },
-            });
-          }
-        },
-      });
-
-      await crawler.run([{ url: categoryUrl }]);
-      
       await prisma.scrapeJob.update({
         where: { id: scrapeJob.id },
         data: { status: 'SUCCESS', finishedAt: new Date() },
       });
-      
-      console.log(`✅ Product scraping completed for category ${categoryId}`);
-      
+      console.log(`Product scraping done. ${count} saved.`);
     } catch (error) {
-      console.error('💀 Product scraping failed:', error);
+      console.error('Product scraping failed:', error);
       await prisma.scrapeJob.update({
         where: { id: scrapeJob.id },
         data: {
@@ -143,7 +169,10 @@ const worker = new Worker(
       port: parseInt(process.env.REDIS_PORT || '6379'),
     },
     limiter: { max: 1, duration: 2000 },
-  }
+  },
 );
 
-console.log('📦 Product worker started');
+worker.on('completed', (job) => console.log(`Job ${job.id} completed`));
+worker.on('failed', (job, err) => console.error(`Job ${job?.id} failed:`, err));
+worker.on('error', (err) => console.error('Worker error:', err));
+console.log('Product worker listening...');
