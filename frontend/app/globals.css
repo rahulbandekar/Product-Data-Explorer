@@ -28,3 +28,36 @@ body {
     text-wrap: balance;
   }
 }
+
+/* ── Accessibility — keyboard navigation (WCAG AA) ── */
+
+/* Show focus ring only for keyboard users, not mouse clicks */
+:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Remove default outline since we handle it via focus-visible */
+:focus:not(:focus-visible) {
+  outline: none;
+}
+
+/* Skip to main content link — hidden until focused */
+.skip-link {
+  position: absolute;
+  top: -100%;
+  left: 8px;
+  z-index: 9999;
+  padding: 8px 16px;
+  background: #1d4ed8;
+  color: white;
+  font-weight: 600;
+  border-radius: 4px;
+  text-decoration: none;
+  transition: top 0.1s;
+}
+
+.skip-link:focus {
+  top: 8px;
+}
