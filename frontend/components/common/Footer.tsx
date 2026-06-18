@@ -1,5 +1,5 @@
-import Link from 'next/link';
-import { BookOpen, Github, Linkedin, Mail } from 'lucide-react';
+import Link from "next/link";
+import { BookOpen, Github, Linkedin, Mail } from "lucide-react";
 
 export default function Footer() {
   const currentYear = new Date().getFullYear();
@@ -32,7 +32,10 @@ export default function Footer() {
                 </Link>
               </li>
               <li>
-                <Link href="/contact" className="text-gray-300 hover:text-white">
+                <Link
+                  href="/contact"
+                  className="text-gray-300 hover:text-white"
+                >
                   Contact
                 </Link>
               </li>
@@ -58,13 +61,24 @@ export default function Footer() {
           <div>
             <h3 className="text-lg font-semibold mb-4">Connect</h3>
             <div className="flex space-x-4">
-              <a href="https://github.com" target="_blank" className="text-gray-300 hover:text-white">
+              <a
+                href="https://github.com"
+                target="_blank"
+                className="text-gray-300 hover:text-white"
+              >
                 <Github className="h-6 w-6" />
               </a>
-              <a href="https://linkedin.com" target="_blank" className="text-gray-300 hover:text-white">
+              <a
+                href="https://linkedin.com"
+                target="_blank"
+                className="text-gray-300 hover:text-white"
+              >
                 <Linkedin className="h-6 w-6" />
               </a>
-              <a href="mailto:info@example.com" className="text-gray-300 hover:text-white">
+              <a
+                href="mailto:info@example.com"
+                className="text-gray-300 hover:text-white"
+              >
                 <Mail className="h-6 w-6" />
               </a>
             </div>
@@ -72,7 +86,18 @@ export default function Footer() {
         </div>
 
         <div className="border-t border-gray-700 mt-8 pt-8 text-center text-gray-400 text-sm">
-          <p>© {currentYear} Product Data Explorer. Demonstration project.</p>
+          <p className="text-sm text-center">
+            &copy; {currentYear} Product Data Explorer. Hackathon project by{" "}
+            <a
+              href="https://github.com/rahulbandekar"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-amber-400 hover:underline transition-colors"
+            >
+              Rahul Bandekar
+            </a>
+            . All rights reserved.
+          </p>
         </div>
       </div>
     </footer>

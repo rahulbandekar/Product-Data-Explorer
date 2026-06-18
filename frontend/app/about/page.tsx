@@ -1,12 +1,15 @@
-import { BookOpen, Globe, Shield, Zap } from 'lucide-react';
+import { BookOpen, Globe, Shield, Zap } from "lucide-react";
 
 export default function AboutPage() {
   return (
-    <div className="max-w-4xl mx-auto">
+    <div className="max-w-4xl m-auto">
       <div className="text-center mb-12">
-        <h1 className="text-4xl font-bold text-gray-900 mb-4">About Product Data Explorer</h1>
+        <h1 className="text-4xl font-bold text-gray-900 mb-4">
+          About Product Data Explorer
+        </h1>
         <p className="text-lg text-gray-600">
-          A full-stack application for exploring products with live on-demand scraping
+          A full-stack application for exploring products with live on-demand
+          scraping
         </p>
       </div>
 
@@ -15,7 +18,8 @@ export default function AboutPage() {
           <BookOpen className="h-12 w-12 text-blue-600 mb-4" />
           <h3 className="text-xl font-semibold mb-2">Real-time Data</h3>
           <p className="text-gray-600">
-            Products and categories are scraped in real-time from World of Books, ensuring you always see the latest information.
+            Products and categories are scraped in real-time from World of
+            Books, ensuring you always see the latest information.
           </p>
         </div>
 
@@ -23,7 +27,8 @@ export default function AboutPage() {
           <Globe className="h-12 w-12 text-blue-600 mb-4" />
           <h3 className="text-xl font-semibold mb-2">Ethical Scraping</h3>
           <p className="text-gray-600">
-            We respect robots.txt, implement rate limiting, and cache results to minimize impact on the target website.
+            We respect robots.txt, implement rate limiting, and cache results to
+            minimize impact on the target website.
           </p>
         </div>
 
@@ -31,7 +36,8 @@ export default function AboutPage() {
           <Zap className="h-12 w-12 text-blue-600 mb-4" />
           <h3 className="text-xl font-semibold mb-2">Fast & Responsive</h3>
           <p className="text-gray-600">
-            Built with Next.js and React Query for optimal performance and seamless user experience.
+            Built with Next.js and React Query for optimal performance and
+            seamless user experience.
           </p>
         </div>
 
@@ -39,7 +45,8 @@ export default function AboutPage() {
           <Shield className="h-12 w-12 text-blue-600 mb-4" />
           <h3 className="text-xl font-semibold mb-2">Production Ready</h3>
           <p className="text-gray-600">
-            Includes error handling, logging, testing, and follows best practices for deployment.
+            Includes error handling, logging, testing, and follows best
+            practices for deployment.
           </p>
         </div>
       </div>
@@ -49,11 +56,15 @@ export default function AboutPage() {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <div className="text-center">
             <div className="font-semibold text-blue-600">Frontend</div>
-            <div className="text-sm text-gray-600">Next.js 14, React, TypeScript, Tailwind</div>
+            <div className="text-sm text-gray-600">
+              Next.js 14, React, TypeScript, Tailwind
+            </div>
           </div>
           <div className="text-center">
             <div className="font-semibold text-blue-600">Backend</div>
-            <div className="text-sm text-gray-600">NestJS, TypeScript, PostgreSQL</div>
+            <div className="text-sm text-gray-600">
+              NestJS, TypeScript, PostgreSQL
+            </div>
           </div>
           <div className="text-center">
             <div className="font-semibold text-blue-600">Scraping</div>
