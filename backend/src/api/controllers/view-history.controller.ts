@@ -1,14 +1,16 @@
 // src/api/controllers/view-history.controller.ts
-import { Controller, Post, Get, Body, Query, HttpException, HttpStatus } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Get,
+  Body,
+  Query,
+  HttpException,
+  HttpStatus,
+} from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBody, ApiQuery } from '@nestjs/swagger';
 import { PrismaService } from '../../prisma/prisma.service';
-
-class TrackViewDto {
-  sessionId: string;
-  path: string;
-  productId?: number;
-  categoryId?: number;
-}
+import { TrackViewDto } from '../dto/view-history.dto';
 
 @ApiTags('view-history')
 @Controller('view-history')
@@ -23,7 +25,10 @@ export class ViewHistoryController {
       const { sessionId, path, productId, categoryId } = body;
 
       if (!sessionId || !path) {
-        throw new HttpException('Session ID and path are required', HttpStatus.BAD_REQUEST);
+        throw new HttpException(
+          'Session ID and path are required',
+          HttpStatus.BAD_REQUEST,
+        );
       }
 
       const viewData = {
@@ -76,11 +81,12 @@ export class ViewHistoryController {
 
       return {
         success: true,
-        data: views.map(view => ({
+        data: views.map((view) => ({
           ...view,
-          pathJson: typeof view.pathJson === 'string' 
-            ? JSON.parse(view.pathJson) 
-            : view.pathJson,
+          pathJson:
+            typeof view.pathJson === 'string'
+              ? JSON.parse(view.pathJson)
+              : view.pathJson,
         })),
       };
     } catch (error) {
@@ -106,26 +112,28 @@ export class ViewHistoryController {
       const views = await this.prisma.viewHistory.findMany({
         where: {
           pathJson: {
-            string_contains: '/products/',     
-        },
+            string_contains: '/products/',
+          },
         },
         take: 1000, // Limit for performance
       });
 
       const productCounts: Record<number, number> = {};
-      
-      views.forEach(view => {
-        const pathJson = typeof view.pathJson === 'string' 
-          ? JSON.parse(view.pathJson) 
-          : view.pathJson;
-        
+
+      views.forEach((view) => {
+        const pathJson =
+          typeof view.pathJson === 'string'
+            ? JSON.parse(view.pathJson)
+            : view.pathJson;
+
         if (pathJson.productId) {
-          productCounts[pathJson.productId] = (productCounts[pathJson.productId] || 0) + 1;
+          productCounts[pathJson.productId] =
+            (productCounts[pathJson.productId] || 0) + 1;
         }
       });
 
       const popularProductIds = Object.entries(productCounts)
-        .sort(([,a], [,b]) => b - a)
+        .sort(([, a], [, b]) => b - a)
         .slice(0, limitNum)
         .map(([productId]) => parseInt(productId));
 
@@ -139,13 +147,13 @@ export class ViewHistoryController {
       });
 
       // Sort by popularity count
-      const sortedProducts = products.sort((a, b) => 
-        (productCounts[b.id] || 0) - (productCounts[a.id] || 0)
+      const sortedProducts = products.sort(
+        (a, b) => (productCounts[b.id] || 0) - (productCounts[a.id] || 0),
       );
 
       return {
         success: true,
-        data: sortedProducts.map(product => ({
+        data: sortedProducts.map((product) => ({
           ...product,
           viewCount: productCounts[product.id] || 0,
         })),

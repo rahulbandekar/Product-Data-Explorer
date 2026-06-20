@@ -1,32 +1,54 @@
 // src/api/controllers/products.controller.ts
-import { Controller, Get, Post, Param, Query, HttpException, HttpStatus } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Param,
+  Query,
+  HttpException,
+  HttpStatus,
+} from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiParam, ApiQuery } from '@nestjs/swagger';
 import { PrismaService } from '../../prisma/prisma.service';
 import { ScrapeQueueService } from '../../scrape/services/scrape-queue.service';
-import { PaginationDto } from '../dto/pagination.dto'; // Import from DTO file
+import { ProductsQueryDto } from '../dto/products-query.dto';
 
 @ApiTags('products')
 @Controller('products')
 export class ProductsController {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly scrapeQueue: ScrapeQueueService
+    private readonly scrapeQueue: ScrapeQueueService,
   ) {}
 
   @Get()
-  @ApiOperation({ summary: 'Get products with pagination' })
-  @ApiQuery({ name: 'page', required: false, type: Number })
-  @ApiQuery({ name: 'limit', required: false, type: Number })
-  @ApiQuery({ name: 'categoryId', required: false, type: Number })
-  async getProducts(
-    @Query() pagination: PaginationDto,
-    @Query('categoryId') categoryId?: string,
-  ) {
+  @ApiOperation({
+    summary: 'Get products with pagination and optional filters',
+  })
+  async getProducts(@Query() query: ProductsQueryDto) {
     try {
-      const { page = 1, limit = 20 } = pagination;
+      const {
+        page = 1,
+        limit = 20,
+        categoryId,
+        search,
+        minPrice,
+        maxPrice,
+        minRating,
+      } = query;
       const skip = (page - 1) * limit;
 
-      const where = categoryId ? { categoryId: parseInt(categoryId) } : {};
+      const where: any = {};
+      if (categoryId) where.categoryId = categoryId;
+      if (search) where.title = { contains: search, mode: 'insensitive' };
+      if (minPrice !== undefined || maxPrice !== undefined) {
+        where.price = {};
+        if (minPrice !== undefined) where.price.gte = minPrice;
+        if (maxPrice !== undefined) where.price.lte = maxPrice;
+      }
+      if (minRating !== undefined) {
+        where.detail = { ratingsAvg: { gte: minRating } };
+      }
 
       const [products, total] = await Promise.all([
         this.prisma.product.findMany({
@@ -98,7 +120,7 @@ export class ProductsController {
       };
     } catch (error) {
       if (error instanceof HttpException) throw error;
-      
+
       throw new HttpException(
         {
           success: false,
@@ -123,7 +145,7 @@ export class ProductsController {
       // Get product URL
       const product = await this.prisma.product.findUnique({
         where: { id: productId },
-        select: { sourceUrl: true }
+        select: { sourceUrl: true },
       });
 
       if (!product) {
@@ -133,7 +155,7 @@ export class ProductsController {
       // Trigger scrape
       const job = await this.scrapeQueue.addProductDetailScrapeJob(productId, {
         force: true,
-        url: product.sourceUrl
+        url: product.sourceUrl,
       });
 
       return {
