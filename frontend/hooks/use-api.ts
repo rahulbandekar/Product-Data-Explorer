@@ -85,3 +85,14 @@ export const useRefreshProduct = (productId: number) => {
     },
   });
 };
+
+export const useScrapeProducts = (categoryId: number) => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (force: boolean = false) =>
+      apiService.scrapeProducts(categoryId, force),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["products"] });
+    },
+  });
+};

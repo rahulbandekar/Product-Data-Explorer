@@ -38,7 +38,11 @@ function getRedisConnection() {
       };
     } catch {
       const [host, port] = redisUrl.split(':');
-      return { host, port: parseInt(port || '6379'), maxRetriesPerRequest: null as null };
+      return {
+        host,
+        port: parseInt(port || '6379'),
+        maxRetriesPerRequest: null as null,
+      };
     }
   }
 
@@ -89,27 +93,23 @@ export class ScrapeQueueService {
     const navigation = await this.prisma.navigation.findUnique({
       where: { id: navigationId },
     });
-
-    if (!navigation) {
-      throw new Error(`Navigation ${navigationId} not found`);
-    }
+    if (!navigation) throw new Error(`Navigation ${navigationId} not found`);
 
     return await this.queue.add(
       'scrape-categories',
       {
         navigationId: navigation.id.toString(),
         navigationSlug: navigation.slug,
-        navigationUrl: `https://www.worldofbooks.com/en-us/${navigation.slug}`,
+        navigationUrl:
+          navigation.sourceUrl ||
+          `https://www.worldofbooks.com/pages/${navigation.slug}`,
         force: options.force || false,
         timestamp: new Date().toISOString(),
       },
       {
         jobId: `cat-${navigationId}-${Date.now()}`,
         attempts: 3,
-        backoff: {
-          type: 'exponential',
-          delay: 5000,
-        },
+        backoff: { type: 'exponential', delay: 5000 },
       },
     );
   }
@@ -120,16 +120,13 @@ export class ScrapeQueueService {
   ) {
     const category = await this.prisma.category.findUnique({
       where: { id: categoryId },
-      include: { navigation: true },
     });
-
-    if (!category) {
-      throw new Error(`Category ${categoryId} not found`);
-    }
+    if (!category) throw new Error(`Category ${categoryId} not found`);
 
     const url =
       options.url ||
-      `https://www.worldofbooks.com/en-us/${category.navigation.slug}/${category.slug}`;
+      category.sourceUrl ||
+      `https://www.worldofbooks.com/collections/${category.slug}`;
 
     return await this.queue.add(
       'scrape-products',
@@ -143,10 +140,7 @@ export class ScrapeQueueService {
       {
         jobId: `prod-${categoryId}-${Date.now()}`,
         attempts: 3,
-        backoff: {
-          type: 'exponential',
-          delay: 5000,
-        },
+        backoff: { type: 'exponential', delay: 5000 },
       },
     );
   }

@@ -14,18 +14,20 @@ datasource db {
 }
 
 model Navigation {
-  id            Int       @id @default(autoincrement())
+  id            Int        @id @default(autoincrement())
   title         String
-  slug          String    @unique
+  slug          String     @unique
+  sourceUrl     String?
   lastScrapedAt DateTime?
   categories    Category[]
-  createdAt     DateTime  @default(now())
+  createdAt     DateTime   @default(now())
 }
 
 model Category {
   id            Int        @id @default(autoincrement())
   title         String
   slug          String
+  sourceUrl     String?
   productCount  Int?
   lastScrapedAt DateTime?
   navigationId  Int
