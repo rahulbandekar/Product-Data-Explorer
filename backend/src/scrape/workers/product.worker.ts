@@ -2,12 +2,10 @@ import 'dotenv/config';
 import { Worker, Queue } from 'bullmq';
 import { PrismaClient } from '@prisma/client';
 import axios from 'axios';
+import { getRedisConnection } from '../../common/redis-connection';
 
 const prisma = new PrismaClient();
-const connection = {
-  host: process.env.REDIS_HOST || '127.0.0.1',
-  port: parseInt(process.env.REDIS_PORT || '6379'),
-};
+const connection = getRedisConnection();
 const detailQueue = new Queue('scrape-queue', { connection });
 
 process.on('uncaughtException', (err) => console.error('Uncaught:', err));

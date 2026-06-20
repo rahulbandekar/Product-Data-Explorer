@@ -3,6 +3,7 @@ import { Worker } from 'bullmq';
 import { PrismaClient } from '@prisma/client';
 import axios from 'axios';
 import { WORLD_OF_BOOKS_TAXONOMY } from '../data/world-of-books-taxonomy';
+import { getRedisConnection } from '../../common/redis-connection';
 
 const CACHE_TTL_MS = 1000 * 60 * 60 * 24;
 const prisma = new PrismaClient();
@@ -180,10 +181,7 @@ const worker = new Worker(
     }
   },
   {
-    connection: {
-      host: process.env.REDIS_HOST || '127.0.0.1',
-      port: parseInt(process.env.REDIS_PORT || '6379'),
-    },
+    connection: getRedisConnection(),
     limiter: { max: 1, duration: 3000 },
   },
 );

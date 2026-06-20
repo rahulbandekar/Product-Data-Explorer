@@ -2,6 +2,7 @@ import 'dotenv/config';
 import { Worker } from 'bullmq';
 import { PrismaClient } from '@prisma/client';
 import axios from 'axios';
+import { getRedisConnection } from '../../common/redis-connection';
 
 const prisma = new PrismaClient();
 
@@ -167,10 +168,7 @@ const worker = new Worker(
     }
   },
   {
-    connection: {
-      host: process.env.REDIS_HOST || '127.0.0.1',
-      port: parseInt(process.env.REDIS_PORT || '6379'),
-    },
+    connection: getRedisConnection(),
     limiter: { max: 1, duration: 3000 },
   },
 );
