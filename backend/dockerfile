@@ -9,6 +9,9 @@ RUN npm ci
 
 COPY . .
 
+ARG DATABASE_URL="postgresql://placeholder:placeholder@localhost:5432/placeholder"
+ENV DATABASE_URL=$DATABASE_URL
+
 RUN npx prisma generate
 RUN npm run build
 
@@ -20,4 +23,4 @@ EXPOSE 4000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
   CMD curl -f http://localhost:${PORT:-4000}/health || exit 1
 
-CMD ["sh", "-c", "npx prisma migrate deploy && npx ts-node prisma/seed.ts || true && node dist/main"]
+  CMD ["sh", "-c", "npx prisma migrate deploy && node dist/main"]

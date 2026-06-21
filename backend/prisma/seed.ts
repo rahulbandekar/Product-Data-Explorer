@@ -3,8 +3,21 @@ import { PrismaClient } from '@prisma/client';
 const prisma = new PrismaClient();
 
 async function main() {
+  console.log('🌱 Checking database state...');
+
+  const existingNavCount = await prisma.navigation.count();
+  if (existingNavCount > 0) {
+    console.log(
+      `Database already has ${existingNavCount} navigation entries — skipping destructive seed.`,
+    );
+    console.log(
+      'If you really want to reset to sample data, run with FORCE_RESEED=true.',
+    );
+    if (process.env.FORCE_RESEED !== 'true') return;
+  }
+
   console.log('🌱 Seeding database...');
-  
+
   // Clear existing data (optional)
   await prisma.review.deleteMany();
   await prisma.productDetail.deleteMany();
@@ -13,7 +26,7 @@ async function main() {
   await prisma.navigation.deleteMany();
   await prisma.scrapeJob.deleteMany();
   await prisma.viewHistory.deleteMany();
-  
+
   // Create sample navigation
   const navigation = await prisma.navigation.upsert({
     where: { slug: 'books' },
@@ -24,13 +37,15 @@ async function main() {
       lastScrapedAt: new Date(),
     },
   });
-  
+
   console.log(`✅ Created navigation: ${navigation.title}`);
-  
+
   // Create sample categories
   const categories = await Promise.all([
     prisma.category.upsert({
-      where: { navigationId_slug: { navigationId: navigation.id, slug: 'fiction' } },
+      where: {
+        navigationId_slug: { navigationId: navigation.id, slug: 'fiction' },
+      },
       update: {},
       create: {
         title: 'Fiction',
@@ -41,7 +56,9 @@ async function main() {
       },
     }),
     prisma.category.upsert({
-      where: { navigationId_slug: { navigationId: navigation.id, slug: 'non-fiction' } },
+      where: {
+        navigationId_slug: { navigationId: navigation.id, slug: 'non-fiction' },
+      },
       update: {},
       create: {
         title: 'Non-Fiction',
@@ -52,7 +69,9 @@ async function main() {
       },
     }),
     prisma.category.upsert({
-      where: { navigationId_slug: { navigationId: navigation.id, slug: 'childrens' } },
+      where: {
+        navigationId_slug: { navigationId: navigation.id, slug: 'childrens' },
+      },
       update: {},
       create: {
         title: "Children's Books",
@@ -63,9 +82,9 @@ async function main() {
       },
     }),
   ]);
-  
+
   console.log(`✅ Created ${categories.length} categories`);
-  
+
   // Create sample products with authors
   const products = await Promise.all([
     prisma.product.upsert({
@@ -92,7 +111,8 @@ async function main() {
         price: 15.99,
         currency: 'GBP',
         imageUrl: 'https://images.example.com/history-time.jpg',
-        sourceUrl: 'https://www.worldofbooks.com/en-us/books/a-brief-history-of-time',
+        sourceUrl:
+          'https://www.worldofbooks.com/en-us/books/a-brief-history-of-time',
         sourceId: 'test-002',
         categoryId: categories[1].id,
         lastScrapedAt: new Date(),
@@ -102,7 +122,7 @@ async function main() {
       where: { sourceId: 'test-003' },
       update: {},
       create: {
-        title: 'Harry Potter and the Philosopher\'s Stone',
+        title: "Harry Potter and the Philosopher's Stone",
         author: 'J.K. Rowling',
         price: 9.99,
         currency: 'GBP',
@@ -114,9 +134,9 @@ async function main() {
       },
     }),
   ]);
-  
+
   console.log(`✅ Created ${products.length} products with authors`);
-  
+
   // Create product details
   await Promise.all([
     prisma.productDetail.upsert({
@@ -137,7 +157,7 @@ async function main() {
       },
     }),
   ]);
-  
+
   // Create sample reviews
   await Promise.all([
     prisma.review.create({
@@ -157,12 +177,14 @@ async function main() {
       },
     }),
   ]);
-  
+
   console.log('✅ Database seeded successfully!');
   console.log('\n📊 Summary:');
   console.log(`- Navigation: ${navigation.title}`);
-  console.log(`- Categories: ${categories.map(c => c.title).join(', ')}`);
-  console.log(`- Products: ${products.map(p => `"${p.title}" by ${p.author}`).join(', ')}`);
+  console.log(`- Categories: ${categories.map((c) => c.title).join(', ')}`);
+  console.log(
+    `- Products: ${products.map((p) => `"${p.title}" by ${p.author}`).join(', ')}`,
+  );
   console.log(`- Reviews: 2 sample reviews created`);
 }
 

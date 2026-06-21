@@ -9,11 +9,11 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres123
     ports:
-      - "5432:5432"
+      - '5432:5432'
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      test: ['CMD-SHELL', 'pg_isready -U postgres']
       interval: 10s
       timeout: 5s
       retries: 5
@@ -22,11 +22,11 @@ services:
     image: redis:7-alpine
     container_name: product-explorer-redis
     ports:
-      - "6379:6379"
+      - '6379:6379'
     volumes:
       - redis_data:/data
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ['CMD', 'redis-cli', 'ping']
       interval: 10s
       timeout: 5s
       retries: 5
@@ -37,23 +37,99 @@ services:
       dockerfile: Dockerfile.dev
     container_name: product-explorer-backend
     ports:
-      - "4000:4000"
+      - '4000:4000'
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
     environment:
-      DATABASE_URL: "postgresql://postgres:postgres123@postgres:5432/product_explorer?schema=public"
+      DATABASE_URL: 'postgresql://postgres:postgres123@postgres:5432/product_explorer?schema=public'
       REDIS_HOST: redis
       REDIS_PORT: 6379
       PORT: 4000
       NODE_ENV: development
-      FRONTEND_URL: "http://localhost:3000"
+      FRONTEND_URL: 'http://localhost:3000'
     volumes:
       - .:/app
       - /app/node_modules
     command: sh -c "npx prisma generate && npx prisma migrate dev && npm run start:dev"
+
+  navigation-worker:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    container_name: product-explorer-nav-worker
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: 'postgresql://postgres:postgres123@postgres:5432/product_explorer?schema=public'
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+    volumes:
+      - .:/app
+      - /app/node_modules
+    command: npm run start:nav-worker
+
+  category-worker:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    container_name: product-explorer-cat-worker
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: 'postgresql://postgres:postgres123@postgres:5432/product_explorer?schema=public'
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+    volumes:
+      - .:/app
+      - /app/node_modules
+    command: npm run start:cat-worker
+
+  product-worker:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    container_name: product-explorer-prod-worker
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: 'postgresql://postgres:postgres123@postgres:5432/product_explorer?schema=public'
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+    volumes:
+      - .:/app
+      - /app/node_modules
+    command: npm run start:prod-worker
+
+  product-detail-worker:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    container_name: product-explorer-detail-worker
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: 'postgresql://postgres:postgres123@postgres:5432/product_explorer?schema=public'
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+    volumes:
+      - .:/app
+      - /app/node_modules
+    command: npm run start:prod-detail-worker
 
 volumes:
   postgres_data:

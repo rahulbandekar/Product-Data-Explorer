@@ -1,0 +1,106 @@
+# backend/docker-compose.prod.yml
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: product-explorer-db
+    environment:
+      POSTGRES_DB: product_explorer
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U postgres']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: product-explorer-redis
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: product-explorer-backend
+    ports:
+      - '4000:4000'
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+    environment:
+      DATABASE_URL: 'postgresql://postgres:${POSTGRES_PASSWORD}@postgres:5432/product_explorer?schema=public'
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      PORT: 4000
+      NODE_ENV: production
+      FRONTEND_URL: ${FRONTEND_URL}
+    restart: unless-stopped
+
+  navigation-worker:
+    build: { context: ., dockerfile: Dockerfile }
+    container_name: product-explorer-nav-worker
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+    environment:
+      DATABASE_URL: 'postgresql://postgres:${POSTGRES_PASSWORD}@postgres:5432/product_explorer?schema=public'
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+    command: node dist/scrape/workers/navigation.worker.js
+    restart: unless-stopped
+
+  category-worker:
+    build: { context: ., dockerfile: Dockerfile }
+    container_name: product-explorer-cat-worker
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+    environment:
+      DATABASE_URL: 'postgresql://postgres:${POSTGRES_PASSWORD}@postgres:5432/product_explorer?schema=public'
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+    command: node dist/scrape/workers/category.worker.js
+    restart: unless-stopped
+
+  product-worker:
+    build: { context: ., dockerfile: Dockerfile }
+    container_name: product-explorer-prod-worker
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+    environment:
+      DATABASE_URL: 'postgresql://postgres:${POSTGRES_PASSWORD}@postgres:5432/product_explorer?schema=public'
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+    command: node dist/scrape/workers/product.worker.js
+    restart: unless-stopped
+
+  product-detail-worker:
+    build: { context: ., dockerfile: Dockerfile }
+    container_name: product-explorer-detail-worker
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+    environment:
+      DATABASE_URL: 'postgresql://postgres:${POSTGRES_PASSWORD}@postgres:5432/product_explorer?schema=public'
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+    command: node dist/scrape/workers/product-detail.worker.js
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  redis_data:
