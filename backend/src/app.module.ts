@@ -10,7 +10,7 @@ import { LoggingMiddleware } from './middleware/logging.middleware';
 import { HealthController } from './health/health.controller';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
-import { AdminController } from 'admin/admin.controller';
+import { AdminController } from 'src/admin/admin.controller';
 import { AutoSeedService } from './prisma/auto-seed.service';
 
 function getRedisConnection() {
