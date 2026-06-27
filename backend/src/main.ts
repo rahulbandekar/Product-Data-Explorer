@@ -67,6 +67,15 @@ async function bootstrap() {
 
   console.log(`Server running on port ${port}`);
   console.log(`Swagger docs at /api-docs`);
+  // Embedded workers — Render's free tier has no separate worker service,
+  // so the scrape workers run in this same process instead.
+  if (process.env.ENABLE_EMBEDDED_WORKERS !== 'false') {
+    console.log('Starting embedded scrape workers...');
+    await import('./scrape/workers/navigation.worker.js');
+    await import('./scrape/workers/category.worker.js');
+    await import('./scrape/workers/product.worker.js');
+    await import('./scrape/workers/product-detail.worker.js');
+  }
 }
 
 bootstrap().catch((err) => {

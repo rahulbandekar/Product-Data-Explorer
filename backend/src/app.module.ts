@@ -10,6 +10,8 @@ import { LoggingMiddleware } from './middleware/logging.middleware';
 import { HealthController } from './health/health.controller';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
+import { AdminController } from 'admin/admin.controller';
+import { AutoSeedService } from './prisma/auto-seed.service';
 
 function getRedisConnection() {
   const redisUrl = process.env.REDIS_URL;
@@ -66,9 +68,10 @@ function getRedisConnection() {
     ScrapeModule,
     ApiModule,
   ],
-  controllers: [HealthController, AppController],
+  controllers: [HealthController, AppController, AdminController],
   providers: [
     AppService,
+    AutoSeedService,
     {
       provide: APP_GUARD,
       useClass: ThrottlerGuard,
