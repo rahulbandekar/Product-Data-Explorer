@@ -28,7 +28,7 @@ export class AutoSeedService implements OnModuleInit {
     const navigation = await this.prisma.navigation.upsert({
       where: { slug: 'books' },
       update: {},
-      create: { title: 'Books', slug: 'books', lastScrapedAt: new Date() },
+      create: { title: 'Books', slug: 'books', lastScrapedAt: null },
     });
 
     const categories = await Promise.all([
