@@ -6,7 +6,7 @@ import { ScrapeQueueService } from './services/scrape-queue.service';
 @Module({
   imports: [
     BullModule.registerQueue({
-      name: 'scrape',
+      name: 'scrape-queue',
     }),
   ],
   providers: [ScrapeService, ScrapeQueueService],
