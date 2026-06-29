@@ -37,52 +37,51 @@ async function scrapeProductsHttp(
   const products: ScrapedProduct[] = [];
   const seen = new Set<string>();
 
-  const productLinkRegex =
-    /<a[^>]+href=["']([^"']*\/products\/[^"'?#]+)["'][^>]*>/gi;
-  let match: RegExpExecArray | null;
+  // World of Books' collection-page "View Product" links are populated by
+  // client-side JS and are empty in the raw HTML, so we can't anchor on
+  // <a href="/products/...">. Instead we anchor on the product cover image —
+  // its CDN filename always embeds the book's ISBN (e.g.
+  // .../cdn/shop/files/9781405957618_300x300.jpg) — and World of Books
+  // serves /products/<isbn> as a valid URL that redirects to the real page.
+  const imgTagRegex = /<img\b[^>]*>/gi;
+  let imgMatch: RegExpExecArray | null;
 
-  while ((match = productLinkRegex.exec(html)) !== null) {
-    const href = match[1];
-    const fullUrl = href.startsWith('http')
-      ? href
-      : `https://www.worldofbooks.com${href.startsWith('/') ? href : '/' + href}`;
-    if (seen.has(fullUrl)) continue;
-    seen.add(fullUrl);
+  while ((imgMatch = imgTagRegex.exec(html)) !== null) {
+    const imgTag = imgMatch[0];
 
-    const handle = fullUrl.match(/\/products\/([^/?#]+)/)?.[1] ?? fullUrl;
+    const srcMatch = imgTag.match(/src=["']([^"']+)["']/i);
+    if (!srcMatch) continue;
 
-    // Look at a window of HTML around the match for title/author/image —
-    // World of Books renders these right next to each product card link.
-    const contextStart = Math.max(0, match.index - 600);
-    const context = html.slice(contextStart, match.index + 600);
+    const isbnMatch = srcMatch[1].match(/\/cdn\/shop\/files\/(\d{9,13}X?)_/i);
+    if (!isbnMatch) continue;
 
-    const titleMatch =
-      context.match(/>([^<]{3,120})<\/a>/) ||
-      context.match(/alt=["']([^"']{3,120})["']/);
-    const title = titleMatch
-      ? titleMatch[1].replace(/\s+/g, ' ').trim()
-      : 'Untitled Product';
+    const isbn = isbnMatch[1];
+    if (seen.has(isbn)) continue;
+    seen.add(isbn);
 
+    const altMatch = imgTag.match(/alt=["']([^"']*)["']/i);
+    const title =
+      altMatch && altMatch[1].trim()
+        ? altMatch[1].replace(/\s+/g, ' ').trim()
+        : 'Untitled Product';
+
+    const imageUrl = srcMatch[1].startsWith('http')
+      ? srcMatch[1]
+      : `https:${srcMatch[1]}`;
+
+    // Author text sits in the markup shortly after each product card's image
+    const context = html.slice(imgMatch.index, imgMatch.index + 800);
     const authorMatch =
       context.match(/Author:\s*<\/?[^>]*>?\s*([^<]{2,80})</i) ||
       context.match(/Author:\s*([^<\n]{2,80})/i);
     const author = authorMatch ? authorMatch[1].trim() : null;
 
-    const imageMatch = context.match(
-      /src=["']([^"']+\.(?:jpg|jpeg|png|webp)[^"']*)["']/i,
-    );
-    const imageUrl = imageMatch
-      ? imageMatch[1].startsWith('http')
-        ? imageMatch[1]
-        : `https:${imageMatch[1]}`
-      : null;
-
     products.push({
       title,
       author,
       imageUrl,
-      sourceUrl: fullUrl,
-      sourceId: handle,
+      sourceUrl: `https://www.worldofbooks.com/products/${isbn}`,
+      sourceId: isbn,
     });
     if (products.length >= 48) break;
   }
