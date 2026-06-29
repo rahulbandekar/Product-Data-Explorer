@@ -6,7 +6,7 @@ import { getRedisConnection } from '../../common/redis-connection';
 
 const prisma = new PrismaClient();
 const connection = getRedisConnection();
-const detailQueue = new Queue('scrape-queue', { connection });
+const detailQueue = new Queue('scrape-product-detail-queue', { connection });
 
 process.on('uncaughtException', (err) => console.error('Uncaught:', err));
 process.on('unhandledRejection', (err) => console.error('Unhandled:', err));
@@ -90,7 +90,7 @@ async function scrapeProductsHttp(
 }
 
 const worker = new Worker(
-  'scrape-queue',
+  'scrape-products-queue',
   async (job) => {
     if (job.name !== 'scrape-products') return;
 

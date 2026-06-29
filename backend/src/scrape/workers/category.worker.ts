@@ -56,7 +56,7 @@ async function scrapeCategoriesHttp(navigationUrl: string) {
 }
 
 const worker = new Worker(
-  'scrape-queue',
+  'scrape-categories-queue',
   async (job) => {
     if (job.name !== 'scrape-categories') return;
 

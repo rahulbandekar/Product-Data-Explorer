@@ -5,7 +5,7 @@ import { Queue } from 'bullmq';
 @Injectable()
 export class ScrapeService implements OnModuleInit {
   constructor(
-    @InjectQueue('scrape-queue')
+    @InjectQueue('scrape-navigation-queue')
     private readonly scrapeQueue: Queue,
   ) {}
 

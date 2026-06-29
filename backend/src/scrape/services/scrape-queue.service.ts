@@ -55,20 +55,23 @@ function getRedisConnection() {
 
 @Injectable()
 export class ScrapeQueueService {
-  private queue: Queue;
+  private navigationQueue: Queue;
+  private categoriesQueue: Queue;
+  private productsQueue: Queue;
+  private productDetailQueue: Queue;
 
   constructor(private readonly prisma: PrismaService) {
-    // Pass plain connection options — NOT an IORedis instance.
-    // BullMQ creates its own internal Redis client from this, which
-    // avoids type conflicts between top-level ioredis and bullmq's
-    // bundled ioredis dependency.
-    this.queue = new Queue('scrape-queue', {
-      connection: getRedisConnection(),
+    const connection = getRedisConnection();
+    this.navigationQueue = new Queue('scrape-navigation-queue', { connection });
+    this.categoriesQueue = new Queue('scrape-categories-queue', { connection });
+    this.productsQueue = new Queue('scrape-products-queue', { connection });
+    this.productDetailQueue = new Queue('scrape-product-detail-queue', {
+      connection,
     });
   }
 
   async addNavigationScrapeJob(options: NavigationScrapeOptions = {}) {
-    return await this.queue.add(
+    return await this.navigationQueue.add(
       'scrape-navigation',
       {
         type: 'navigation',
@@ -95,7 +98,7 @@ export class ScrapeQueueService {
     });
     if (!navigation) throw new Error(`Navigation ${navigationId} not found`);
 
-    return await this.queue.add(
+    return await this.categoriesQueue.add(
       'scrape-categories',
       {
         navigationId: navigation.id.toString(),
@@ -128,7 +131,7 @@ export class ScrapeQueueService {
       category.sourceUrl ||
       `https://www.worldofbooks.com/collections/${category.slug}`;
 
-    return await this.queue.add(
+    return await this.productsQueue.add(
       'scrape-products',
       {
         categoryId: category.id.toString(),
@@ -157,7 +160,7 @@ export class ScrapeQueueService {
       throw new Error(`Product ${productId} not found`);
     }
 
-    return await this.queue.add(
+    return await this.productDetailQueue.add(
       'scrape-product-detail',
       {
         productId: product.id.toString(),

@@ -19,7 +19,7 @@ process.on('unhandledRejection', (err) => console.error('Unhandled:', err));
 console.log('Navigation worker starting...');
 
 const worker = new Worker(
-  'scrape-queue',
+  'scrape-navigation-queue',
   async (job) => {
     if (job.name !== 'scrape-navigation') return;
 

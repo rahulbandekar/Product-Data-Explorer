@@ -80,7 +80,7 @@ async function scrapeProductDetailHttp(url: string) {
 }
 
 const worker = new Worker(
-  'scrape-queue',
+  'scrape-product-detail-queue',
   async (job) => {
     if (job.name !== 'scrape-product-detail') return;
 
